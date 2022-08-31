@@ -58,6 +58,10 @@ DEFAULT_PACKAGES.router:=\
 	iptables \
 	odhcp6c \
 	odhcpd-ipv6only \
+	ipv6helper \
+	kmod-ipt-raw \
+	kmod-nf-nathelper \
+	kmod-nf-nathelper-extra \
 	ppp \
 	ppp-mod-pppoe
 

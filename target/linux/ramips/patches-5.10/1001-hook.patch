@@ -1,0 +1,425 @@
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -70,6 +70,7 @@
+ #include <net/mpls.h>
+ #include <net/mptcp.h>
+ 
++#include <net/ra_nat.h>
+ #include <linux/uaccess.h>
+ #include <trace/events/skb.h>
+ #include <linux/highmem.h>
+@@ -690,6 +691,14 @@
+ 
+ void __kfree_skb(struct sk_buff *skb)
+ {
++
++
++
++
++
++
++
++
+ 	skb_release_all(skb);
+ 	kfree_skbmem(skb);
+ }
+@@ -1648,7 +1657,15 @@
+ 	memcpy((struct skb_shared_info *)(data + size),
+ 	       skb_shinfo(skb),
+ 	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_frags]));
+-
++	memcpy(data, skb->head, FOE_INFO_LEN);
++
++
++
++
++
++
++
++
+ 	/*
+ 	 * if shinfo is shared we must drop the old head gracefully, but if it
+ 	 * is not we can just drop the old head and let the existing refcount
+--- a/include/net/netfilter/nf_hnat.h
++++ b/include/net/netfilter/nf_hnat.h
+@@ -0,0 +1,24 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _NF_HNAT_H
++#define _NF_HNAT_H
++
++#include <linux/netdevice.h>
++
++#define HNAT_PATH_ETHERNET      BIT(0)
++#define HNAT_PATH_VLAN          BIT(1)
++#define HNAT_PATH_PPPOE         BIT(2)
++#define HNAT_PATH_DSLITE        BIT(3)
++
++struct hnat_hw_path {
++        const struct net_device *dev;
++        u32 flags;
++
++        u8 eth_src[ETH_ALEN];
++        u8 eth_dest[ETH_ALEN];
++        u16 vlan_proto;
++        u16 vlan_id;
++        u16 pppoe_sid;
++};
++
++#endif
++
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -52,7 +52,7 @@
+ #include <linux/nsproxy.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+-
++#include <net/netfilter/nf_hnat.h>
+ #define PPP_VERSION	"2.4.2"
+ 
+ /*
+@@ -1466,6 +1466,26 @@
+ 		ppp_destroy_interface(ppp);
+ }
+ 
++static int ppp_hnat_check(struct hnat_hw_path *path)
++{
++        struct ppp *ppp = netdev_priv(path->dev);
++        struct ppp_channel *chan;
++        struct channel *pch;
++
++        if (ppp->flags & SC_MULTILINK)
++                return -EOPNOTSUPP;
++
++        if (list_empty(&ppp->channels))
++                return -ENODEV;
++
++        pch = list_first_entry(&ppp->channels, struct channel, clist);
++        chan = pch->chan;
++        if (!chan->ops->hnat_check)
++                return -EOPNOTSUPP;
++
++        return chan->ops->hnat_check(chan, path);
++}
++
+ static const struct net_device_ops ppp_netdev_ops = {
+ 	.ndo_init	 = ppp_dev_init,
+ 	.ndo_uninit      = ppp_dev_uninit,
+@@ -1472,6 +1492,7 @@
+ 	.ndo_start_xmit  = ppp_start_xmit,
+ 	.ndo_do_ioctl    = ppp_net_ioctl,
+ 	.ndo_get_stats64 = ppp_get_stats64,
++	.ndo_hnat_check  = ppp_hnat_check,
+ };
+ 
+ static struct device_type ppp_type = {
+--- a/drivers/net/ppp/pppoe.c
++++ b/drivers/net/ppp/pppoe.c
+@@ -79,7 +79,7 @@
+ #include <net/sock.h>
+ 
+ #include <linux/uaccess.h>
+-
++#include <net/netfilter/nf_hnat.h>
+ #define PPPOE_HASH_BITS 4
+ #define PPPOE_HASH_SIZE (1 << PPPOE_HASH_BITS)
+ #define PPPOE_HASH_MASK	(PPPOE_HASH_SIZE - 1)
+@@ -972,8 +972,32 @@
+ 	return __pppoe_xmit(sk, skb);
+ }
+ 
++static int pppoe_hnat_check(struct ppp_channel *chan,
++                            struct hnat_hw_path *path)
++{
++        struct sock *sk = (struct sock *)chan->private;
++        struct pppox_sock *po = pppox_sk(sk);
++        struct net_device *dev = po->pppoe_dev;
++
++        if (sock_flag(sk, SOCK_DEAD) ||
++            !(sk->sk_state & PPPOX_CONNECTED) || !dev)
++                return -ENODEV;
++
++        path->dev = po->pppoe_dev;
++        path->flags |= HNAT_PATH_PPPOE;
++        memcpy(path->eth_src, po->pppoe_dev->dev_addr, ETH_ALEN);
++        memcpy(path->eth_dest, po->pppoe_pa.remote, ETH_ALEN);
++        path->pppoe_sid = be16_to_cpu(po->num);
++
++        if (path->dev->netdev_ops->ndo_hnat_check)
++                return path->dev->netdev_ops->ndo_hnat_check(path);
++
++        return 0;
++}
++
+ static const struct ppp_channel_ops pppoe_chan_ops = {
+ 	.start_xmit = pppoe_xmit,
++	.hnat_check = pppoe_hnat_check,
+ };
+ 
+ static int pppoe_recvmsg(struct socket *sock, struct msghdr *m,
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -950,6 +950,8 @@
+ 	struct notifier_block *nb;
+ };
+ 
++struct hnat_hw_path;
++
+ /*
+  * This structure defines the management hooks for network devices.
+  * The following hooks can be defined; unless noted otherwise, they are
+@@ -1487,6 +1489,7 @@
+ 	int			(*ndo_tunnel_ctl)(struct net_device *dev,
+ 						  struct ip_tunnel_parm *p, int cmd);
+ 	struct net_device *	(*ndo_get_peer_dev)(struct net_device *dev);
++       int                     (*ndo_hnat_check)(struct hnat_hw_path *path);
+ };
+ 
+ /**
+--- a/include/linux/ppp_channel.h
++++ b/include/linux/ppp_channel.h
+@@ -28,6 +28,7 @@
+ 	int	(*start_xmit)(struct ppp_channel *, struct sk_buff *);
+ 	/* Handle an ioctl call that has come in via /dev/ppp. */
+ 	int	(*ioctl)(struct ppp_channel *, unsigned int, unsigned long);
++	int	(*hnat_check)(struct ppp_channel *, struct hnat_hw_path *);
+ };
+ 
+ struct ppp_channel {
+--- a/include/net/netfilter/nf_flow_table.h
++++ b/include/net/netfilter/nf_flow_table.h
+@@ -92,9 +92,12 @@ struct flow_offload {
+ #define FLOW_OFFLOAD_PATH_VLAN		BIT(1)
+ #define FLOW_OFFLOAD_PATH_PPPOE		BIT(2)
+ #define FLOW_OFFLOAD_PATH_DSA		BIT(3)
++#define FLOW_OFFLOAD_PATH_DSLITE	BIT(4)
++#define FLOW_OFFLOAD_PATH_6RD		BIT(5)
+ 
+ struct flow_offload_hw_path {
+ 	struct net_device *dev;
++	struct net_device *virt_dev;
+ 	u32 flags;
+ 
+ 	u8 eth_src[ETH_ALEN]; 
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -31,6 +31,8 @@
+ #include "vlanproc.h"
+ #include <linux/if_vlan.h>
+ #include <linux/netpoll.h>
++#include <linux/netfilter.h>
++#include <net/netfilter/nf_hnat.h>
+ 
+ /*
+  *	Create the VLAN header for an arbitrary protocol layer
+@@ -770,6 +772,45 @@
+ 	return real_dev->ifindex;
+ }
+ 
++static int vlan_dev_hnat_check(struct hnat_hw_path *path)
++{
++	struct net_device *dev = path->dev;
++	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
++
++	if (path->flags & HNAT_PATH_VLAN)
++		return -EEXIST;
++
++	path->flags |= HNAT_PATH_VLAN;
++	path->vlan_proto = vlan->vlan_proto;
++	path->vlan_id = vlan->vlan_id;
++	path->virt_dev = dev;
++	path->dev = vlan->real_dev;
++
++	if (vlan->real_dev->netdev_ops->ndo_hnat_check)
++		return vlan->real_dev->netdev_ops->ndo_hnat_check(path);
++
++	return 0;
++}
++
++static int vlan_dev_flow_offload_check(struct flow_offload_hw_path *path)
++{
++	struct net_device *dev = path->dev;
++	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
++
++	if (path->flags & FLOW_OFFLOAD_PATH_VLAN)
++		return -EEXIST;
++
++	path->flags |= FLOW_OFFLOAD_PATH_VLAN;
++	path->vlan_proto = vlan->vlan_proto;
++	path->vlan_id = vlan->vlan_id;
++	path->virt_dev = dev;
++	path->dev = vlan->real_dev;
++
++	if (vlan->real_dev->netdev_ops->ndo_flow_offload_check)
++		return vlan->real_dev->netdev_ops->ndo_flow_offload_check(path);
++
++	return 0;
++}
+ static const struct ethtool_ops vlan_ethtool_ops = {
+ 	.get_link_ksettings	= vlan_ethtool_get_link_ksettings,
+ 	.get_drvinfo	        = vlan_ethtool_get_drvinfo,
+@@ -808,6 +847,8 @@
+ #endif
+ 	.ndo_fix_features	= vlan_dev_fix_features,
+ 	.ndo_get_iflink		= vlan_dev_get_iflink,
++	.ndo_hnat_check		= vlan_dev_hnat_check,
++	.ndo_flow_offload_check	= vlan_dev_flow_offload_check,
+ };
+ 
+ static void vlan_dev_free(struct net_device *dev)
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -54,6 +54,12 @@
+ #include <net/netns/generic.h>
+ #include <net/dst_metadata.h>
+ 
++#if IS_ENABLED(CONFIG_NF_FLOW_TABLE)
++#include <linux/netfilter.h>
++#include <net/netfilter/nf_hnat.h>
++#include <net/netfilter/nf_flow_table.h>
++#endif
++
+ MODULE_AUTHOR("Ville Nuorvala");
+ MODULE_DESCRIPTION("IPv6 tunneling device");
+ MODULE_LICENSE("GPL");
+@@ -1767,6 +1773,37 @@
+ }
+ EXPORT_SYMBOL(ip6_tnl_change_mtu);
+ 
++static int ipip6_dev_hnat_check(struct hnat_hw_path *path)
++{
++
++	struct net_device *dev = path->dev;
++	struct ip6_tnl *tnl = netdev_priv(dev);
++
++	if (path->flags & HNAT_PATH_DSLITE)
++		return -EEXIST;
++
++	path->flags |= HNAT_PATH_DSLITE;
++	path->dev = tnl->dev;
++
++	return 0;
++}
++
++#if IS_ENABLED(CONFIG_NF_FLOW_TABLE)
++static int ipip6_dev_flow_offload_check(struct flow_offload_hw_path *path)
++{
++	struct net_device *dev = path->dev;
++	struct ip6_tnl *tnl = netdev_priv(dev);
++
++	if (path->flags & FLOW_OFFLOAD_PATH_DSLITE)
++		return -EEXIST;
++
++	path->flags |= FLOW_OFFLOAD_PATH_DSLITE;
++	path->dev = tnl->dev;
++
++	return 0;
++}
++#endif /* CONFIG_NF_FLOW_TABLE */
++
+ int ip6_tnl_get_iflink(const struct net_device *dev)
+ {
+ 	struct ip6_tnl *t = netdev_priv(dev);
+@@ -1836,6 +1873,10 @@
+ 	.ndo_change_mtu = ip6_tnl_change_mtu,
+ 	.ndo_get_stats	= ip6_get_stats,
+ 	.ndo_get_iflink = ip6_tnl_get_iflink,
++	.ndo_hnat_check = ipip6_dev_hnat_check,
++#if IS_ENABLED(CONFIG_NF_FLOW_TABLE)
++	.ndo_flow_offload_check = ipip6_dev_flow_offload_check,
++#endif
+ };
+ 
+ #define IPXIPX_FEATURES (NETIF_F_SG |		\
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -52,6 +52,11 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ 
++#if IS_ENABLED(CONFIG_NF_FLOW_TABLE)
++#include <linux/netfilter.h>
++#include <net/netfilter/nf_flow_table.h>
++#endif
++
+ /*
+    This version of net/ipv6/sit.c is cloned of net/ipv4/ip_gre.c
+ 
+@@ -1345,6 +1350,22 @@ ipip6_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	return err;
+ }
+ 
++#if IS_ENABLED(CONFIG_NF_FLOW_TABLE)
++static int ipip6_dev_flow_offload_check(struct flow_offload_hw_path *path)
++{
++	struct net_device *dev = path->dev;
++	struct ip_tunnel *tnl = netdev_priv(dev);
++
++	if (path->flags & FLOW_OFFLOAD_PATH_6RD)
++		return -EEXIST;
++
++	path->flags |= FLOW_OFFLOAD_PATH_6RD;
++	path->dev = tnl->dev;
++
++	return 0;
++}
++#endif /* CONFIG_NF_FLOW_TABLE */
++
+ static const struct net_device_ops ipip6_netdev_ops = {
+ 	.ndo_init	= ipip6_tunnel_init,
+ 	.ndo_uninit	= ipip6_tunnel_uninit,
+@@ -1352,6 +1373,9 @@ static const struct net_device_ops ipip6_netdev_ops = {
+ 	.ndo_do_ioctl	= ipip6_tunnel_ioctl,
+ 	.ndo_get_stats64 = ip_tunnel_get_stats64,
+ 	.ndo_get_iflink = ip_tunnel_get_iflink,
++#if IS_ENABLED(CONFIG_NF_FLOW_TABLE)
++	.ndo_flow_offload_check = ipip6_dev_flow_offload_check,
++#endif
+ };
+ 
+ static void ipip6_dev_free(struct net_device *dev)
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -15,9 +15,9 @@
+ #include <linux/ipv6.h>
+ #include <net/ip6_checksum.h>
+ #include <asm/unaligned.h>
+-
++#include <linux/inetdevice.h>
+ #include <net/tcp.h>
+-
++#include <net/ip.h>
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/netfilter_ipv6.h>
+@@ -47,7 +47,10 @@
+ 
+   /* FIXME: Examine ipfilter's timeouts and conntrack transitions more
+      closely.  They're more complex. --RR */
+-
++#ifndef IPV4_DEVCONF_DFLT
++	#define IPV4_DEVCONF_DFLT(net, attr) \
++	IPV4_DEVCONF((*net->ipv4.devconf_dflt), attr)
++#endif
+ static const char *const tcp_conntrack_names[] = {
+ 	"NONE",
+ 	"SYN_SENT",
+@@ -476,6 +479,18 @@
+ 	s32 receiver_offset;
+ 	bool res, in_recv_win;
+ 
++	if (net) {
++               if ((net->ipv4.devconf_all && net->ipv4.devconf_dflt && net->ipv6.devconf_all) &&
++                   net->ipv6.devconf_dflt) {
++                       if ((IPV4_DEVCONF_DFLT(net, FORWARDING) ||
++                            IPV4_DEVCONF_ALL(net, FORWARDING)) ||
++                            (net->ipv6.devconf_all->forwarding ||
++                             net->ipv6.devconf_dflt->forwarding)) {
++                               return true;
++                       }
++               }
++       }
++
+ 	/*
+ 	 * Get the required data from the packet.
+ 	 */

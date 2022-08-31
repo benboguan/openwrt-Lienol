@@ -1185,7 +1185,7 @@ dnsmasq_start()
 	esac
 
 	procd_close_instance
-	
+
 	config_get_bool dns_redirect "$cfg" dns_redirect 0
 	config_get dns_port "$cfg" port 53
 	[ $dns_redirect = 1 ] && {

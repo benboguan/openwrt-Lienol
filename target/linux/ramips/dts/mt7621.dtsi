@@ -37,6 +37,21 @@
 		compatible = "mti,cpu-interrupt-controller";
 	};
 
+	reserved-memory {
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+		ramoops@3f00000 {
+			compatible = "ramoops";
+			reg = <0x3f00000 0x80000>;
+
+			record-size = <0x10000>;
+			console-size = <0x10000>;
+			ftrace-size = <0x20000>;
+		};
+	};
+
 	chosen {
 		bootargs = "console=ttyS0,57600";
 	};
@@ -462,8 +477,21 @@
 		clock-names = "nfi_clk";
 	};
 
+	crypto@1e004000 {
+		compatible = "mediatek,mtk-eip93";
+		reg = <0x1e004000 0x1000>;
+
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED 19 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	ethsys: ethsys@1e000000 {
+		compatible = "mediatek,mt7621-ethsys", "syscon";
+		reg = <0x1e000000 0x8000>;
+	};
+
 	ethernet: ethernet@1e100000 {
-		compatible = "mediatek,mt7621-eth";
+		compatible = "mediatek,mt7621-eth","syscon";
 		reg = <0x1e100000 0x10000>;
 
 #ifdef DTS_LEGACY
@@ -476,7 +504,7 @@
 #endif
 
 		#address-cells = <1>;
-		#size-cells = <0>;
+		#size-cells = <1>;
 
 		resets = <&rstctrl 6>, <&rstctrl 23>;
 		reset-names = "fe", "eth";
@@ -484,7 +512,7 @@
 		interrupt-parent = <&gic>;
 		interrupts = <GIC_SHARED 3 IRQ_TYPE_LEVEL_HIGH>;
 
-		mediatek,ethsys = <&sysc>;
+		mediatek,ethsys = <&ethsys>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&mdio_pins>, <&rgmii1_pins>, <&rgmii2_pins>;
@@ -504,8 +532,13 @@
 		gmac1: mac@1 {
 			compatible = "mediatek,eth-mac";
 			reg = <1>;
-			status = "disabled";
-			phy-mode = "rgmii-rxid";
+			phy-mode = "rgmii";
+
+			fixed-link {
+				speed = <1000>;
+				full-duplex;
+				pause;
+			};
 		};
 
 		mdio: mdio-bus {
@@ -571,6 +604,28 @@
 				};
 			};
 		};
+
+	};
+
+	gsw: gsw {
+		compatible = "mediatek,mt753x";
+		mt7530,direct-phy-access;
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED 23 IRQ_TYPE_LEVEL_HIGH>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+
+	hnat: hnat@1e100000 {
+		compatible = "mediatek,mtk-hnat_v1";
+		reg = <0x1e100000 0x3000>;
+
+		resets = <&ethsys 0>;
+		reset-names = "mtketh";
+
+		status = "disabled";
 	};
 
 	pcie: pcie@1e140000 {

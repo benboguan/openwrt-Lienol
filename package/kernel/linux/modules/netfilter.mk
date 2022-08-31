@@ -176,7 +176,9 @@ define KernelPackage/nf-flow
 	CONFIG_NF_FLOW_TABLE \
 	CONFIG_NF_FLOW_TABLE_HW
   DEPENDS:=+kmod-nf-conntrack
-  FILES:= $(LINUX_DIR)/net/netfilter/nf_flow_table.ko
+  FILES:= \
+	$(LINUX_DIR)/net/netfilter/nf_flow_table.ko \
+	$(if $(CONFIG_LINUX_5_10),$(LINUX_DIR)/net/netfilter/nf_flow_table_hw.ko)
   AUTOLOAD:=$(call AutoProbe,nf_flow_table nf_flow_table_hw)
 endef
 
@@ -689,7 +691,7 @@ $(eval $(call KernelPackage,ipt-socket))
 
 define KernelPackage/ipt-tproxy
   TITLE:=Transparent proxying support
-  DEPENDS+=+kmod-nf-tproxy +kmod-nf-conntrack
+  DEPENDS+=+kmod-nf-tproxy +kmod-nf-conntrack +IPV6:kmod-nf-conntrack6 +IPV6:kmod-ip6tables
   KCONFIG:=$(KCONFIG_IPT_TPROXY)
   FILES:=$(foreach mod,$(IPT_TPROXY-m),$(LINUX_DIR)/net/$(mod).ko)
   AUTOLOAD:=$(call AutoProbe,$(notdir $(IPT_TPROXY-m)))
@@ -1167,6 +1169,17 @@ endef
 
 $(eval $(call KernelPackage,nft-offload))
 
+
+define KernelPackage/nft-nat6
+  SUBMENU:=$(NF_MENU)
+  TITLE:=Netfilter nf_tables IPv6-NAT support
+  DEPENDS:=+kmod-nft-nat +kmod-nf-nat6
+  FILES:=$(foreach mod,$(NFT_NAT6-m),$(LINUX_DIR)/net/$(mod).ko)
+  AUTOLOAD:=$(call AutoProbe,$(notdir $(NFT_NAT6-m)))
+  KCONFIG:=$(KCONFIG_NFT_NAT6)
+endef
+
+$(eval $(call KernelPackage,nft-nat6))
 
 define KernelPackage/nft-netdev
   SUBMENU:=$(NF_MENU)

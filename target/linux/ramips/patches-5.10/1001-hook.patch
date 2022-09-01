@@ -8,7 +8,7 @@
  #include <linux/uaccess.h>
  #include <trace/events/skb.h>
  #include <linux/highmem.h>
-@@ -690,6 +691,14 @@
+@@ -707,6 +708,14 @@
  
  void __kfree_skb(struct sk_buff *skb)
  {
@@ -23,7 +23,7 @@
  	skb_release_all(skb);
  	kfree_skbmem(skb);
  }
-@@ -1648,7 +1657,15 @@
+@@ -1665,7 +1674,15 @@
  	memcpy((struct skb_shared_info *)(data + size),
  	       skb_shinfo(skb),
  	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_frags]));
@@ -78,8 +78,8 @@
  #define PPP_VERSION	"2.4.2"
  
  /*
-@@ -1466,6 +1466,26 @@
- 		ppp_destroy_interface(ppp);
+@@ -1487,6 +1487,26 @@
+ 	return chan->ops->fill_forward_path(ctx, path, chan);
  }
  
 +static int ppp_hnat_check(struct hnat_hw_path *path)
@@ -105,10 +105,10 @@
  static const struct net_device_ops ppp_netdev_ops = {
  	.ndo_init	 = ppp_dev_init,
  	.ndo_uninit      = ppp_dev_uninit,
-@@ -1472,6 +1492,7 @@
- 	.ndo_start_xmit  = ppp_start_xmit,
+@@ -1494,6 +1514,7 @@
  	.ndo_do_ioctl    = ppp_net_ioctl,
  	.ndo_get_stats64 = ppp_get_stats64,
+ 	.ndo_fill_forward_path = ppp_fill_forward_path,
 +	.ndo_hnat_check  = ppp_hnat_check,
  };
  
@@ -124,8 +124,8 @@
  #define PPPOE_HASH_BITS 4
  #define PPPOE_HASH_SIZE (1 << PPPOE_HASH_BITS)
  #define PPPOE_HASH_MASK	(PPPOE_HASH_SIZE - 1)
-@@ -972,8 +972,32 @@
- 	return __pppoe_xmit(sk, skb);
+@@ -994,9 +994,33 @@
+ 	return 0;
  }
  
 +static int pppoe_hnat_check(struct ppp_channel *chan,
@@ -153,13 +153,14 @@
 +
  static const struct ppp_channel_ops pppoe_chan_ops = {
  	.start_xmit = pppoe_xmit,
+ 	.fill_forward_path = pppoe_fill_forward_path,
 +	.hnat_check = pppoe_hnat_check,
  };
  
  static int pppoe_recvmsg(struct socket *sock, struct msghdr *m,
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -950,6 +950,8 @@
+@@ -1044,6 +1044,8 @@
  	struct notifier_block *nb;
  };
  
@@ -168,20 +169,20 @@
  /*
   * This structure defines the management hooks for network devices.
   * The following hooks can be defined; unless noted otherwise, they are
-@@ -1487,6 +1489,7 @@
- 	int			(*ndo_tunnel_ctl)(struct net_device *dev,
- 						  struct ip_tunnel_parm *p, int cmd);
+@@ -1545,6 +1545,7 @@
  	struct net_device *	(*ndo_get_peer_dev)(struct net_device *dev);
+ 	int                     (*ndo_fill_forward_path)(struct net_device_path_ctx *ctx,
+                                                          struct net_device_path *path);
 +       int                     (*ndo_hnat_check)(struct hnat_hw_path *path);
  };
  
  /**
 --- a/include/linux/ppp_channel.h
 +++ b/include/linux/ppp_channel.h
-@@ -28,6 +28,7 @@
- 	int	(*start_xmit)(struct ppp_channel *, struct sk_buff *);
- 	/* Handle an ioctl call that has come in via /dev/ppp. */
- 	int	(*ioctl)(struct ppp_channel *, unsigned int, unsigned long);
+@@ -31,6 +31,7 @@
+ 	int	(*fill_forward_path)(struct net_device_path_ctx *,
+ 				     struct net_device_path *,
+ 				     const struct ppp_channel *);
 +	int	(*hnat_check)(struct ppp_channel *, struct hnat_hw_path *);
  };
  
@@ -197,7 +198,7 @@
  
  /*
   *	Create the VLAN header for an arbitrary protocol layer
-@@ -770,6 +772,25 @@
+@@ -790,6 +792,25 @@
  	return real_dev->ifindex;
  }
  
@@ -223,17 +224,17 @@
  static const struct ethtool_ops vlan_ethtool_ops = {
  	.get_link_ksettings	= vlan_ethtool_get_link_ksettings,
  	.get_drvinfo	        = vlan_ethtool_get_drvinfo,
-@@ -808,6 +828,7 @@
- #endif
+@@ -829,6 +849,7 @@
  	.ndo_fix_features	= vlan_dev_fix_features,
  	.ndo_get_iflink		= vlan_dev_get_iflink,
+ 	.ndo_fill_forward_path	= vlan_dev_fill_forward_path,
 +	.ndo_hnat_check		= vlan_dev_hnat_check,
  };
  
  static void vlan_dev_free(struct net_device *dev)
 --- a/net/ipv6/ip6_tunnel.c
 +++ b/net/ipv6/ip6_tunnel.c
-@@ -53,7 +53,8 @@
+@@ -56,7 +56,8 @@
  #include <net/net_namespace.h>
  #include <net/netns/generic.h>
  #include <net/dst_metadata.h>
@@ -243,7 +244,7 @@
  MODULE_AUTHOR("Ville Nuorvala");
  MODULE_DESCRIPTION("IPv6 tunneling device");
  MODULE_LICENSE("GPL");
-@@ -1767,6 +1768,23 @@
+@@ -1938,6 +1938,23 @@
  }
  EXPORT_SYMBOL(ip6_tnl_change_mtu);
  
@@ -267,7 +268,7 @@
  int ip6_tnl_get_iflink(const struct net_device *dev)
  {
  	struct ip6_tnl *t = netdev_priv(dev);
-@@ -1836,6 +1854,7 @@
+@@ -2007,6 +2024,7 @@
  	.ndo_change_mtu = ip6_tnl_change_mtu,
  	.ndo_get_stats	= ip6_get_stats,
  	.ndo_get_iflink = ip6_tnl_get_iflink,
@@ -289,7 +290,7 @@
  #include <linux/netfilter.h>
  #include <linux/netfilter_ipv4.h>
  #include <linux/netfilter_ipv6.h>
-@@ -47,7 +47,10 @@
+@@ -58,7 +58,10 @@
  
    /* FIXME: Examine ipfilter's timeouts and conntrack transitions more
       closely.  They're more complex. --RR */
@@ -301,7 +302,7 @@
  static const char *const tcp_conntrack_names[] = {
  	"NONE",
  	"SYN_SENT",
-@@ -476,6 +479,18 @@
+@@ -493,6 +496,18 @@
  	s32 receiver_offset;
  	bool res, in_recv_win;
  

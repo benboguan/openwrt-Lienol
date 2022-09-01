@@ -11,7 +11,7 @@ Signed-off-by: Chen Minqiang <ptpt52@gmail.com>
 
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -5293,6 +5293,21 @@ another_round:
+@@ -5321,6 +5321,21 @@ another_round:
  	if (skb_skip_tc_classify(skb))
  		goto skip_classify;
  
@@ -33,7 +33,7 @@ Signed-off-by: Chen Minqiang <ptpt52@gmail.com>
  	if (pfmemalloc)
  		goto skip_taps;
  
-@@ -5309,21 +5324,6 @@ another_round:
+@@ -5337,21 +5352,6 @@ another_round:
  	}
  
  skip_taps:

@@ -614,12 +614,13 @@
 		ranges = <0x02000000 0 0x00000000 0x60000000 0 0x10000000>, /* pci memory */
 			 <0x01000000 0 0x00000000 0x1e160000 0 0x00010000>; /* io space */
 
+		status = "disabled";
+
 		interrupt-parent = <&gic>;
 		interrupts = <GIC_SHARED 4 IRQ_TYPE_LEVEL_HIGH
 				GIC_SHARED 24 IRQ_TYPE_LEVEL_HIGH
 				GIC_SHARED 25 IRQ_TYPE_LEVEL_HIGH>;
 
-		status = "disabled";
 
 		resets = <&rstctrl 24>, <&rstctrl 25>, <&rstctrl 26>;
 		reset-names = "pcie0", "pcie1", "pcie2";

@@ -318,6 +318,8 @@
 +               }
 +       }
 +
+ 	if (nf_ct_tcp_no_window_check)
+ 		return true;
  	/*
  	 * Get the required data from the packet.
  	 */

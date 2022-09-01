@@ -198,8 +198,8 @@
  
  /*
   *	Create the VLAN header for an arbitrary protocol layer
-@@ -790,6 +792,25 @@
- 	return real_dev->ifindex;
+@@ -790,6 +792,24 @@
+ 	return 0;
  }
  
 +static int vlan_dev_hnat_check(struct hnat_hw_path *path)
@@ -213,7 +213,6 @@
 +	path->flags |= HNAT_PATH_VLAN;
 +	path->vlan_proto = vlan->vlan_proto;
 +	path->vlan_id = vlan->vlan_id;
-+	path->virt_dev = dev;
 +	path->dev = vlan->real_dev;
 +
 +	if (vlan->real_dev->netdev_ops->ndo_hnat_check)
@@ -302,7 +301,7 @@
  static const char *const tcp_conntrack_names[] = {
  	"NONE",
  	"SYN_SENT",
-@@ -493,6 +496,18 @@
+@@ -479,6 +482,18 @@
  	s32 receiver_offset;
  	bool res, in_recv_win;
  
@@ -320,6 +319,4 @@
 +
  	if (nf_ct_tcp_no_window_check)
  		return true;
- 	/*
- 	 * Get the required data from the packet.
- 	 */
+ 

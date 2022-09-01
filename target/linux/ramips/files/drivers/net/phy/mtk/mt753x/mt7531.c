@@ -680,11 +680,6 @@ static int mt7531_sw_detect(struct gsw_mt753x *gsw, struct chip_rev *crev)
 	}
 
 	return -ENODEV;
-#else
-	crev->rev = 2;
-	crev->name = "MT7531AE";
-	return 0;
-#endif
 }
 
 static void pinmux_set_mux_7531(struct gsw_mt753x *gsw, u32 pin, u32 mode)

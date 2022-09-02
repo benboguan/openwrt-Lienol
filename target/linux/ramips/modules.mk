@@ -140,7 +140,6 @@ define KernelPackage/ramips_hnat
   DEPENDS:=@TARGET_ramips +kmod-nf-conntrack
   KCONFIG:= \
 	CONFIG_BRIDGE_NETFILTER=y \
-	CONFIG_NET_MEDIATEK_HNAT \
 	CONFIG_NETFILTER_FAMILY_BRIDGE=y
   FILES:= \
         $(LINUX_DIR)/drivers/net/ethernet/mediateksdk/mtk_hnat/mtkhnat.ko

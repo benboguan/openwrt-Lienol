@@ -134,6 +134,10 @@ $(call Package/iptables/Default)
   TITLE:=IP firewall administration tool nft
   DEPENDS:=+kmod-ipt-core +xtables-nft
   PROVIDES:=iptables
+  ALTERNATIVES:=\
+    300:/usr/sbin/iptables:/usr/sbin/xtables-nft-multi \
+    300:/usr/sbin/iptables-restore:/usr/sbin/xtables-nft-multi \
+    300:/usr/sbin/iptables-save:/usr/sbin/xtables-nft-multi
 endef
 
 define Package/iptables-nft/description
@@ -483,6 +487,10 @@ $(call Package/iptables/Default)
   DEPENDS:=@IPV6 +kmod-ip6tables +xtables-nft
   TITLE:=IP firewall administration tool nft
   PROVIDES:=ip6tables
+  ALTERNATIVES:=\
+    300:/usr/sbin/ip6tables:/usr/sbin/xtables-nft-multi \
+    300:/usr/sbin/ip6tables-restore:/usr/sbin/xtables-nft-multi \
+    300:/usr/sbin/ip6tables-save:/usr/sbin/xtables-nft-multi
 endef
 
 define Package/ip6tables-nft/description
@@ -564,9 +572,7 @@ define Package/libxtables
  TITLE:=IPv4/IPv6 firewall - shared xtables library
  MENU:=1
  ABI_VERSION:=12
- DEPENDS:= \
-	+IPTABLES_CONNLABEL:libnetfilter-conntrack \
-	+IPTABLES_NFTABLES:libnftnl
+ DEPENDS:=+IPTABLES_CONNLABEL:libnetfilter-conntrack
 endef
 
 define Package/libxtables/config
@@ -744,11 +750,11 @@ $(eval $(call BuildPackage,libiptext))
 $(eval $(call BuildPackage,libiptext6))
 $(eval $(call BuildPackage,libiptext-nft))
 $(eval $(call BuildPackage,xtables-legacy))
-$(eval $(call BuildPackage,iptables-zz-legacy))
 $(eval $(call BuildPackage,xtables-nft))
 $(eval $(call BuildPackage,arptables-nft))
 $(eval $(call BuildPackage,ebtables-nft))
 $(eval $(call BuildPackage,iptables-nft))
+$(eval $(call BuildPackage,iptables-zz-legacy))
 $(eval $(call BuildPlugin,iptables-mod-conntrack-extra,$(IPT_CONNTRACK_EXTRA-m)))
 $(eval $(call BuildPlugin,iptables-mod-conntrack-label,$(IPT_CONNTRACK_LABEL-m)))
 $(eval $(call BuildPlugin,iptables-mod-extra,$(IPT_EXTRA-m)))
@@ -771,8 +777,8 @@ $(eval $(call BuildPlugin,iptables-mod-nflog,$(IPT_NFLOG-m)))
 $(eval $(call BuildPlugin,iptables-mod-trace,$(IPT_DEBUG-m)))
 $(eval $(call BuildPlugin,iptables-mod-nfqueue,$(IPT_NFQUEUE-m)))
 $(eval $(call BuildPlugin,iptables-mod-checksum,$(IPT_CHECKSUM-m)))
-$(eval $(call BuildPackage,ip6tables-zz-legacy))
 $(eval $(call BuildPackage,ip6tables-nft))
+$(eval $(call BuildPackage,ip6tables-zz-legacy))
 $(eval $(call BuildPlugin,ip6tables-extra,$(IPT_IPV6_EXTRA-m)))
 $(eval $(call BuildPlugin,ip6tables-mod-nat,$(IPT_NAT6-m)))
 

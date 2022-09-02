@@ -273,7 +273,7 @@ static int mt753x_get_port_link(struct switch_dev *dev, int port,
 	return 0;
 }
 
-static int mt753x_set_port_link(struct switch_dev *dev, int port,
+static int mt753x_set_port_link(struct switch_dev *sw_dev, int port,
 				struct switch_port_link *link)
 {
 	if (port < 0 || port >= MT753X_NUM_PHYS)
@@ -284,7 +284,7 @@ static int mt753x_set_port_link(struct switch_dev *dev, int port,
 		u16 bmsr, adv, gctrl;
 		bool ercap;
 
-		dev->ops->phy_read16(dev, port, MII_BMSR, &bmsr);
+		sw_dev->ops->phy_read16(sw_dev, port, MII_BMSR, &bmsr);
 		/* ERCAP means we have MII_CTRL1000 register */
 		ercap = !!(bmsr | BMSR_ERCAP);
 
@@ -322,14 +322,14 @@ static int mt753x_set_port_link(struct switch_dev *dev, int port,
 			break;
 		}
 
-		dev->ops->phy_write16(dev, port, MII_ADVERTISE, adv);
+		sw_dev->ops->phy_write16(sw_dev, port, MII_ADVERTISE, adv);
 		if (ercap)
-			dev->ops->phy_write16(dev, port, MII_CTRL1000, gctrl);
+			sw_dev->ops->phy_write16(sw_dev, port, MII_CTRL1000, gctrl);
 		/* Autoneg restart will be triggered in switch_generic_set_link */
 	}
 
 	/* Let switch_generic_set_link handle not autoneg case */
-	return switch_generic_set_link(dev, port, link);
+	return switch_generic_set_link(sw_dev, port, link);
 }
 
 static u64 get_mib_counter(struct gsw_mt753x *gsw, int i, int port)

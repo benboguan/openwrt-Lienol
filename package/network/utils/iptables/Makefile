@@ -564,7 +564,9 @@ define Package/libxtables
  TITLE:=IPv4/IPv6 firewall - shared xtables library
  MENU:=1
  ABI_VERSION:=12
- DEPENDS:=+IPTABLES_CONNLABEL:libnetfilter-conntrack
+ DEPENDS:= \
+	+IPTABLES_CONNLABEL:libnetfilter-conntrack \
+	+IPTABLES_NFTABLES:libnftnl
 endef
 
 define Package/libxtables/config

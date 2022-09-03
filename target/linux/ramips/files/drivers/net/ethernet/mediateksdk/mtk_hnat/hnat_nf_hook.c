@@ -240,6 +240,8 @@ int nf_hnat_netdevice_event(struct notifier_block *unused, unsigned long event,
 		if (!get_wifi_hook_if_index_from_dev(dev))
 			extif_put_dev(dev);
 
+		foe_clear_all_bind_entries(dev);
+
 		break;
 	case NETDEV_UNREGISTER:
 		if (hnat_priv->g_ppdev == dev) {
@@ -391,7 +393,9 @@ unsigned int do_hnat_ext_to_ge(struct sk_buff *skb, const struct net_device *in,
 		}
 
 		/*set where we come from*/
-		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), in->ifindex & VLAN_VID_MASK);
+		skb->vlan_proto = htons(ETH_P_8021Q);
+		skb->vlan_tci =
+			(VLAN_CFI_MASK | (in->ifindex & VLAN_VID_MASK));
 		trace_printk(
 			"%s: vlan_prot=0x%x, vlan_tci=%x, in->name=%s, skb->dev->name=%s\n",
 			__func__, ntohs(skb->vlan_proto), skb->vlan_tci,
@@ -422,7 +426,6 @@ unsigned int do_hnat_ext_to_ge2(struct sk_buff *skb, const char *func)
 		skb->dev = dev;
 		skb->vlan_proto = 0;
 		skb->vlan_tci = 0;
-		__vlan_hwaccel_clear_tag(skb);
 
 		if (ntohs(eth->h_proto) == ETH_P_8021Q) {
 			skb = skb_vlan_untag(skb);
@@ -453,7 +456,6 @@ unsigned int do_hnat_ext_to_ge2(struct sk_buff *skb, const char *func)
 				set_from_mape(skb);
 				skb->vlan_proto = 0;
 				skb->vlan_tci = 0;
-				__vlan_hwaccel_clear_tag(skb);
 				fix_skb_packet_type(skb, skb->dev, eth_hdr(skb));
 				entry = &hnat_priv->foe_table_cpu[skb_hnat_ppe(skb)][skb_hnat_entry(skb)];
 				entry->bfib1.pkt_type = IPV4_HNAPT;
@@ -648,7 +650,9 @@ unsigned int do_hnat_mape_w2l_fast(struct sk_buff *skb, const struct net_device 
 		eth->h_proto = htons(ETH_P_IP);
 		set_to_ppe(skb);
 
-		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), in->ifindex & VLAN_VID_MASK);
+		skb->vlan_proto = htons(ETH_P_8021Q);
+		skb->vlan_tci =
+		(VLAN_CFI_MASK | (in->ifindex & VLAN_VID_MASK));
 
 		if (!hnat_priv->g_ppdev)
 			hnat_priv->g_ppdev = dev_get_by_name(&init_net, hnat_priv->ppd);
@@ -740,7 +744,7 @@ static unsigned int is_ppe_support_type(struct sk_buff *skb)
 	struct iphdr _iphdr;
 
 	eth = eth_hdr(skb);
-	if (!IS_SPACE_AVAILABLE_HEAD(skb) ||
+	if (!is_magic_tag_valid(skb) || !IS_SPACE_AVAILABLE_HEAD(skb) ||
 	    is_broadcast_ether_addr(eth->h_dest))
 		return 0;
 
@@ -854,6 +858,7 @@ mtk_hnat_ipv4_nf_pre_routing(void *priv, struct sk_buff *skb,
 
 	hnat_set_head_frags(state, skb, -1, hnat_set_iif);
 
+	pre_routing_print(skb, state->in, state->out, __func__);
 
 	/* packets from external devices -> xxx ,step 1 , learning stage & bound stage*/
 	if (do_ext2ge_fast_try(state->in, skb)) {
@@ -1560,13 +1565,17 @@ static unsigned int skb_to_hnat_info(struct sk_buff *skb,
 		else
 			entry.ipv6_5t_route.act_dp = dev->ifindex;
 	} else {
+		printk_ratelimited(KERN_WARNING
+					"Unknown case of dp, iif=%x --> %s\n",
+					skb_hnat_iface(skb), dev->name);
 
 		return 0;
 	}
 
-	if (IS_HQOS_MODE)
+	if (IS_HQOS_MODE || skb->mark >= MAX_PPPQ_PORT_NUM)
 		qid = skb->mark & (MTK_QDMA_TX_MASK);
-	else if (IS_PPPQ_MODE && (IS_DSA_LAN(dev) || IS_DSA_WAN(dev)))
+	else if (IS_PPPQ_MODE && (IS_DSA_1G_LAN(dev) || IS_DSA_WAN(dev) ||
+		 (FROM_WED(skb) && IS_DSA_LAN(dev))))
 		qid = port_id & MTK_QDMA_TX_MASK;
 	else
 		qid = 0;
@@ -1600,7 +1609,10 @@ static unsigned int skb_to_hnat_info(struct sk_buff *skb,
 			    (IS_PPPQ_MODE && !IS_DSA_LAN(dev) && !IS_DSA_WAN(dev)))
 				entry.ipv4_hnapt.iblk2.fqos = 0;
 			else
-				entry.ipv4_hnapt.iblk2.fqos = 1;
+				entry.ipv4_hnapt.iblk2.fqos =
+					(!IS_PPPQ_MODE || (IS_PPPQ_MODE &&
+					 (IS_DSA_1G_LAN(dev) || IS_DSA_WAN(dev) ||
+					 (FROM_WED(skb) && IS_DSA_LAN(dev)))));
 		} else {
 			entry.ipv4_hnapt.iblk2.fqos = 0;
 		}
@@ -1632,7 +1644,10 @@ static unsigned int skb_to_hnat_info(struct sk_buff *skb,
 			    (IS_PPPQ_MODE && !IS_DSA_LAN(dev) && !IS_DSA_WAN(dev)))
 				entry.ipv6_5t_route.iblk2.fqos = 0;
 			else
-				entry.ipv6_5t_route.iblk2.fqos = 1;
+				entry.ipv6_5t_route.iblk2.fqos =
+					(!IS_PPPQ_MODE || (IS_PPPQ_MODE &&
+					 (IS_DSA_1G_LAN(dev) || IS_DSA_WAN(dev) ||
+					 (FROM_WED(skb) && IS_DSA_LAN(dev)))));
 		} else {
 			entry.ipv6_5t_route.iblk2.fqos = 0;
 		}
@@ -1725,10 +1740,22 @@ int mtk_sw_nat_hook_tx(struct sk_buff *skb, int gmac_no)
 		entry->ipv6_5t_route.smac_lo = swab16(*((u16 *)&eth->h_source[4]));
 		break;
 	}
-	
+
+	if (skb->vlan_tci) {
+		bfib1_tx.vlan_layer = 1;
+		bfib1_tx.vpm = 1;
+		if (IS_IPV4_GRP(entry)) {
+			entry->ipv4_hnapt.etype = htons(ETH_P_8021Q);
+			entry->ipv4_hnapt.vlan1 = skb->vlan_tci;
+		} else if (IS_IPV6_GRP(entry)) {
+			entry->ipv6_5t_route.etype = htons(ETH_P_8021Q);
+			entry->ipv6_5t_route.vlan1 = skb->vlan_tci;
+		}
+	} else {
 		bfib1_tx.vpm = 0;
 		bfib1_tx.vlan_layer = 0;
-	
+	}
+
 	/* MT7622 wifi hw_nat not support QoS */
 	if (IS_IPV4_GRP(entry)) {
 		entry->ipv4_hnapt.iblk2.fqos = 0;
@@ -1981,8 +2008,8 @@ static unsigned int mtk_hnat_nf_post_routing(
 	const char *func)
 {
 	struct foe_entry *entry;
-	struct hnat_hw_path hw_path = { .dev = out };
-
+	struct hnat_hw_path hw_path = { .dev = (struct net_device*)out,
+						.virt_dev = (struct net_device*)out };
 	const struct net_device *arp_dev = out;
 
 	if (skb_hnat_alg(skb) || unlikely(!is_magic_tag_valid(skb) ||
@@ -1993,9 +2020,8 @@ static unsigned int mtk_hnat_nf_post_routing(
 		return 0;
 
 	if (out->netdev_ops->ndo_hnat_check) {
-		if (out->netdev_ops->ndo_hnat_check(&hw_path))
-			return 0;
-		out = hw_path.dev;
+		out->netdev_ops->ndo_hnat_check(&hw_path);
+		out = (IS_GMAC1_MODE) ? hw_path.virt_dev : hw_path.dev;
 	}
 
 	if (!IS_LAN(out) && !IS_WAN(out) && !IS_EXT(out))
@@ -2141,6 +2167,7 @@ static unsigned int
 mtk_hnat_ipv4_nf_post_routing(void *priv, struct sk_buff *skb,
 			      const struct nf_hook_state *state)
 {
+	post_routing_print(skb, state->in, state->out, __func__);
 
 	if (!mtk_hnat_nf_post_routing(skb, state->out, hnat_ipv4_get_nexthop,
 				      __func__))
@@ -2360,3 +2387,4 @@ int mtk_hqos_ptype_cb(struct sk_buff *skb, struct net_device *dev,
 
 	return 0;
 }
+

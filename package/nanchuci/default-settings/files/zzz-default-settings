@@ -6,9 +6,11 @@ uci set luci.main.lang=zh_cn
 #设置默认主题
 #uci set luci.main.mediaurlbase=/luci-static/argon
 uci commit luci
-
-uci set system.@system[0].timezone=CST-8
-uci set system.@system[0].zonename=Asia/Shanghai
+	
+uci -q set dropbear.@dropbear[0].Interface='lan'
+uci commit dropbear
+uci set system.@system[0].timezone='CST-8'
+uci set system.@system[0].zonename='Asia/Shanghai'
 uci -q del system.ntp.server
 uci -q add_list system.ntp.server='ntp.tencent.com'
 uci -q add_list system.ntp.server='ntp1.aliyun.com'
@@ -16,6 +18,10 @@ uci -q add_list system.ntp.server='ntp.ntsc.ac.cn'
 uci -q add_list system.ntp.server='cn.ntp.org.cn'
 uci commit system
 
+uci -q set uhttpd.main.rfc1918_filter=0
+uci -q set uhttpd.main.redirect_https=0
+uci -q set uhttpd.main.script_timeout='120'
+uci commit uhttpd
 uci set fstab.@global[0].anon_mount=1
 uci commit fstab
 
@@ -26,7 +32,7 @@ grep -q log-facility /etc/dnsmasq.conf ||
 	echo "log-facility=/dev/null" >> /etc/dnsmasq.conf
 
 kernel_version="$(echo -n $(uname -r))"
-if [[ -f /lib/modules/$kernel_version/xt_FULLCONENAT.ko || -f /lib/modules/$kernel_version/nft_flow_offload.ko ]]; then
+if [[ -f /lib/modules/$kernel_version/xt_FULLCONENAT.ko || -f /lib/modules/$kernel_version/nft_fullcone.ko ]]; then
 	uci -q set firewall.@defaults[0].fullcone='1'
 uci commit firewall
 fi
@@ -40,17 +46,28 @@ sed -i '/other/d' /etc/opkg/distfeeds.conf
 sed -i "s/# //g" /etc/opkg/distfeeds.conf
 
 #sed -i 's/root::0:0:99999:7:::/root:$1$V4UetPzk$CYXluq4wUazHjmCDBCqXF.:0:0:99999:7:::/g' /etc/shadow
-
-#uci set dhcp.lan.ra='server'
-#uci set dhcp.lan.dhcpv6='server'
-#uci set dhcp.lan.ra_management='1'
-#uci set dhcp.lan.ra_default='1'
-#uci set dhcp.@dnsmasq[0].localservice=0
-#uci set dhcp.@dnsmasq[0].nonwildcard=0
-uci delete dhcp.lan.ra
-uci delete dhcp.lan.dhcpv6
-uci delete dhcp.lan.ndp
+ 
+ uci -q set network.@globals[0].packet_steering=1
+ uci commit network
+  
+uci -q set dhcp.@dnsmasq[0].dns_redirect='0'
+uci -q set dhcp.@dnsmasq[0].allservers='1'
+uci -q del dhcp.@dnsmasq[0].noresolv
+uci -q set dhcp.@dnsmasq[0].cachesize='1500'
+uci -q set dhcp.@dnsmasq[0].min_ttl='3600'
+uci -q set dhcp.lan.force='1'
+uci -q set dhcp.lan.ra='hybrid'
+uci -q set dhcp.lan.ndp='hybrid'
+uci -q set dhcp.lan.dhcpv6='hybrid'
+uci -q set dhcp.lan.force='1'
 uci commit dhcp
+
+uci -q set nft-qos.default.limit_enable='0'
+uci commit nft-qos
+
+uci -q set system.@system[0].conloglevel='4'
+uci -q set system.@system[0].cronloglevel='8'
+uci commit system
 
 #uci set network.lan.ipaddr='192.168.119.254'
 #uci set network.lan.netmask='255.255.255.0'

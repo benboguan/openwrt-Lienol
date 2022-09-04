@@ -9,6 +9,7 @@ uci commit luci
 	
 uci -q set dropbear.@dropbear[0].Interface='lan'
 uci commit dropbear
+
 uci set system.@system[0].timezone='CST-8'
 uci set system.@system[0].zonename='Asia/Shanghai'
 uci -q del system.ntp.server
@@ -22,6 +23,7 @@ uci -q set uhttpd.main.rfc1918_filter=0
 uci -q set uhttpd.main.redirect_https=0
 uci -q set uhttpd.main.script_timeout='120'
 uci commit uhttpd
+
 uci set fstab.@global[0].anon_mount=1
 uci commit fstab
 

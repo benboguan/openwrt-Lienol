@@ -2008,8 +2008,8 @@ static unsigned int mtk_hnat_nf_post_routing(
 	const char *func)
 {
 	struct foe_entry *entry;
-	struct hnat_hw_path hw_path = { .dev = (struct net_device*)out,
-						.virt_dev = (struct net_device*)out };
+	struct hnat_hw_path hw_path = { .dev = out };
+
 	const struct net_device *arp_dev = out;
 
 	if (skb_hnat_alg(skb) || unlikely(!is_magic_tag_valid(skb) ||
@@ -2020,8 +2020,9 @@ static unsigned int mtk_hnat_nf_post_routing(
 		return 0;
 
 	if (out->netdev_ops->ndo_hnat_check) {
-		out->netdev_ops->ndo_hnat_check(&hw_path);
-		out = (IS_GMAC1_MODE) ? hw_path.virt_dev : hw_path.dev;
+		if (out->netdev_ops->ndo_hnat_check(&hw_path))
+			return 0;
+		out = hw_path.dev;
 	}
 
 	if (!IS_LAN(out) && !IS_WAN(out) && !IS_EXT(out))

@@ -20,7 +20,7 @@
 #define hwnat_vlan_tx_tag_present(__skb)     ((__skb)->vlan_tci & VLAN_TAG_PRESENT)
 #define hwnat_vlan_tag_get(__skb)         ((__skb)->vlan_tci & ~VLAN_TAG_PRESENT)
 
-#if defined(CONFIG_RA_NAT_HW)
+#if defined(CONFIG_HW_NAT)
 void hwnat_magic_tag_set_zero(struct sk_buff *skb);
 void hwnat_check_magic_tag(struct sk_buff *skb);
 void hwnat_set_headroom_zero(struct sk_buff *skb);

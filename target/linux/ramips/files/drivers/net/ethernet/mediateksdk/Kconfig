@@ -38,6 +38,11 @@ config ARCH_MT7622_WIFI_HW_NAT
 	help
 	  This driver supports ARCH_MT7622_WIFI_HW_NAT
 	  
+config HW_NAT
+	tristate "HW_NAT"
+	help
+	  This driver supports HW_NAT
+	  
 config RA_HW_NAT
 	tristate "RA_HW_NAT"
 	help

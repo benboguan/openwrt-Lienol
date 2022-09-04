@@ -352,4 +352,3 @@ int hnat_mcast_disable(void)
 
 	return 0;
 }
-

@@ -2135,7 +2135,6 @@ static ssize_t hnat_qos_toggle_write(struct file *file, const char __user *buffe
 		qos_toggle = 1;
 	} else if (buf[0] == '2') {
 		pr_info("Per-port-per-queue mode is going to be enabled !\n");
-		pr_info("PPPQ use qid 0~5 (scheduler 0).\n");
 		qos_toggle = 2;
 		hnat_qos_pppq_enable();
 	}
@@ -2263,7 +2262,6 @@ int hnat_init_debugfs(struct mtk_hnat *h)
 {
 	int ret = 0;
 	struct dentry *root;
-	struct dentry *file;
 	long i;
 	char name[16];
 
@@ -2287,13 +2285,8 @@ int hnat_init_debugfs(struct mtk_hnat *h)
 		h->regset[i]->base = h->ppe_base[i];
 
 		snprintf(name, sizeof(name), "regdump%ld", i);
-		file = debugfs_create_regset32(name, S_IRUGO,
+		debugfs_create_regset32(name, S_IRUGO,
 					       root, h->regset[i]);
-		if (!file) {
-			dev_notice(h->dev, "%s:err at %d\n", __func__, __LINE__);
-			ret = -ENOMEM;
-			goto err1;
-		}
 	}
 
 	debugfs_create_file("all_entry", S_IRUGO, root, h, &hnat_debug_fops);

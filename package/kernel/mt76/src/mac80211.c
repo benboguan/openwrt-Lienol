@@ -55,13 +55,6 @@ static const struct ieee80211_channel mt76_channels_5ghz[] = {
 	CHAN5G(60, 5300),
 	CHAN5G(64, 5320),
 
-	CHAN5G(68, 5340),
-	CHAN5G(80, 5400),
-	CHAN5G(84, 5420),
-	CHAN5G(88, 5440),
-	CHAN5G(92, 5460),
-	CHAN5G(96, 5480),
-
 	CHAN5G(100, 5500),
 	CHAN5G(104, 5520),
 	CHAN5G(108, 5540),
@@ -82,11 +75,6 @@ static const struct ieee80211_channel mt76_channels_5ghz[] = {
 	CHAN5G(165, 5825),
 	CHAN5G(169, 5845),
 	CHAN5G(173, 5865),
-
-	CHAN5G(184, 4920),
-	CHAN5G(188, 4940),
-	CHAN5G(192, 4960),
-	CHAN5G(196, 4980),
 };
 
 static const struct ieee80211_channel mt76_channels_6ghz[] = {
@@ -279,7 +267,8 @@ static void mt76_init_stream_cap(struct mt76_phy *phy,
 	}
 	vht_cap->vht_mcs.rx_mcs_map = cpu_to_le16(mcs_map);
 	vht_cap->vht_mcs.tx_mcs_map = cpu_to_le16(mcs_map);
-	vht_cap->vht_mcs.tx_highest |=
+	if (ieee80211_hw_check(phy->hw, SUPPORTS_VHT_EXT_NSS_BW))
+		vht_cap->vht_mcs.tx_highest |=
 				cpu_to_le16(IEEE80211_VHT_EXT_NSS_BW_CAPABLE);
 }
 

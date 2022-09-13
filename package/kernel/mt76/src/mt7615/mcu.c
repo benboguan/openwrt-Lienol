@@ -152,7 +152,7 @@ int mt7615_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		skb_pull(skb, sizeof(*rxd) - 4);
 		ret = *skb->data;
 	} else if (cmd == MCU_EXT_CMD(THERMAL_CTRL)) {
-		skb_pull(skb, sizeof(*rxd) + 4 * is_mt7663(mdev));
+		skb_pull(skb, sizeof(*rxd));
 		ret = le32_to_cpu(*(__le32 *)skb->data);
 	} else if (cmd == MCU_EXT_QUERY(RF_REG_ACCESS)) {
 		skb_pull(skb, sizeof(*rxd));
@@ -380,30 +380,16 @@ static void
 mt7615_mcu_rx_radar_detected(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_phy *mphy = &dev->mt76.phy;
+	struct mt7615_mcu_rdd_report *r;
 
-	if (is_mt7663(&dev->mt76)) {
-		struct mt7663_mcu_rdd_report *r;
+	r = (struct mt7615_mcu_rdd_report *)skb->data;
 
-		r = (struct mt7663_mcu_rdd_report *)skb->data;
+	if (!dev->radar_pattern.n_pulses && !r->long_detected &&
+	    !r->constant_prf_detected && !r->staggered_prf_detected)
+		return;
 
-		if (!dev->radar_pattern.n_pulses && !r->long_detected &&
-		    !r->constant_prf_detected)
-			return;
-
-		if (r->band_idx && dev->mt76.phys[MT_BAND1])
-			mphy = dev->mt76.phys[MT_BAND1];
-	} else {
-		struct mt7615_mcu_rdd_report *r;
-
-		r = (struct mt7615_mcu_rdd_report *)skb->data;
-
-		if (!dev->radar_pattern.n_pulses && !r->long_detected &&
-		    !r->constant_prf_detected && !r->staggered_prf_detected)
-			return;
-
-		if (r->band_idx && dev->mt76.phys[MT_BAND1])
-			mphy = dev->mt76.phys[MT_BAND1];
-	}
+	if (r->band_idx && dev->mt76.phys[MT_BAND1])
+		mphy = dev->mt76.phys[MT_BAND1];
 
 	if (mt76_phy_dfs_state(mphy) < MT_DFS_STATE_CAC)
 		return;
@@ -435,57 +421,6 @@ mt7615_mcu_rx_log_message(struct mt7615_dev *dev, struct sk_buff *skb)
 		   (int)(skb->len - sizeof(*rxd)), data);
 }
 
-struct mt7663_beacon_loss_event {
-	u8 bss_idx[6];
-	u8 reason;
-	u8 pad[1];
-};
-
-static void mt7663_beacon_loss_iter(void *priv, u8 *mac,
-				      struct ieee80211_vif *vif)
-{
-	struct mt7663_beacon_loss_event *event = priv;
-
-	if (memcmp(mac, event->bss_idx, 6) != 0)
-		return;
-
-	//handle ENUM_BCN_LOSS_AP_ERROR only
-	if (event->reason != 0x12)
-		return;
-
-	if (!(vif->driver_flags & IEEE80211_VIF_BEACON_FILTER))
-		return;
-
-	printk("mt7663_beacon_loss_iter: event->bss_idx = %02x:%02x:%02x:%02x:%02x:%02x mac=%02x:%02x:%02x:%02x:%02x:%02x event->reason=%d beacon_filter=%d\n",
-			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
-			event->bss_idx[0], event->bss_idx[1], event->bss_idx[2],
-			event->bss_idx[3], event->bss_idx[4], event->bss_idx[5],
-			event->reason,
-			!!(vif->driver_flags & IEEE80211_VIF_BEACON_FILTER));
-
-	ieee80211_beacon_loss(vif);
-}
-
-static void
-mt7615_mcu_beacon_loss_event(struct mt7615_dev *dev, struct sk_buff *skb)
-{
-	struct mt76_connac_beacon_loss_event *event;
-	struct mt76_phy *mphy;
-	u8 band_idx = 0; /* DBDC support */
-
-	skb_pull(skb, sizeof(struct mt7615_mcu_rxd));
-	event = (struct mt76_connac_beacon_loss_event *)skb->data;
-	if (band_idx && dev->mt76.phys[MT_BAND1])
-		mphy = dev->mt76.phys[MT_BAND1];
-	else
-		mphy = &dev->mt76.phy;
-
-	ieee80211_iterate_active_interfaces_atomic(mphy->hw,
-					IEEE80211_IFACE_ITER_RESUME_ALL,
-					is_mt7663(&dev->mt76) ? mt7663_beacon_loss_iter : mt76_connac_mcu_beacon_loss_iter,
-					event);
-}
-
 static void
 mt7615_mcu_rx_ext_event(struct mt7615_dev *dev, struct sk_buff *skb)
 {
@@ -501,22 +436,7 @@ mt7615_mcu_rx_ext_event(struct mt7615_dev *dev, struct sk_buff *skb)
 	case MCU_EXT_EVENT_FW_LOG_2_HOST:
 		mt7615_mcu_rx_log_message(dev, skb);
 		break;
-	case MCU_EXT_EVENT_BEACON_LOSS:
-		mt7615_mcu_beacon_loss_event(dev, skb);
-		break;
-	case MCU_EXT_EVENT_PS_SYNC:
-		//ignore ok
-		break;
-	case MCU_EXT_EVENT_TX_POWER_FEATURE_CTRL:
-		/* nothing to do */
-		break;
-	case MCU_EXT_EVENT_ASSERT_DUMP:
-		skb_pull(skb, sizeof(struct mt7615_mcu_rxd));
-		skb->data[skb->len] = 0;
-		dev_info(dev->mt76.dev, "MCU_EXT_EVENT_ASSERT_DUMP:%s\n", skb->data);
-		break;
 	default:
-		dev_info(dev->mt76.dev, "get ext unhandle eid=%d ext_eid=%d seq=%d\n", rxd->eid, rxd->ext_eid, rxd->seq);
 		break;
 	}
 }
@@ -571,6 +491,26 @@ mt7615_mcu_roc_event(struct mt7615_dev *dev, struct sk_buff *skb)
 }
 
 static void
+mt7615_mcu_beacon_loss_event(struct mt7615_dev *dev, struct sk_buff *skb)
+{
+	struct mt76_connac_beacon_loss_event *event;
+	struct mt76_phy *mphy;
+	u8 band_idx = 0; /* DBDC support */
+
+	skb_pull(skb, sizeof(struct mt7615_mcu_rxd));
+	event = (struct mt76_connac_beacon_loss_event *)skb->data;
+	if (band_idx && dev->mt76.phys[MT_BAND1])
+		mphy = dev->mt76.phys[MT_BAND1];
+	else
+		mphy = &dev->mt76.phy;
+
+	ieee80211_iterate_active_interfaces_atomic(mphy->hw,
+					IEEE80211_IFACE_ITER_RESUME_ALL,
+					mt76_connac_mcu_beacon_loss_iter,
+					event);
+}
+
+static void
 mt7615_mcu_bss_event(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_connac_mcu_bss_event *event;
@@ -618,7 +558,6 @@ mt7615_mcu_rx_unsolicited_event(struct mt7615_dev *dev, struct sk_buff *skb)
 					       &dev->coredump);
 		return;
 	default:
-		printk("get unhandle eid=%d ext_eid=%d seq=%d\n", rxd->eid, rxd->ext_eid, rxd->seq);
 		break;
 	}
 	dev_kfree_skb(skb);
@@ -725,11 +664,6 @@ mt7615_mcu_add_dev(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 }
 
 static int
-__mt7615_mcu_add_sta(struct mt76_phy *phy, struct ieee80211_vif *vif,
-		     struct ieee80211_sta *sta, bool enable, int cmd,
-		     bool offload_fw);
-
-static int
 mt7615_mcu_add_beacon_offload(struct mt7615_dev *dev,
 			      struct ieee80211_hw *hw,
 			      struct ieee80211_vif *vif, bool enable)
@@ -791,11 +725,6 @@ mt7615_mcu_add_beacon_offload(struct mt7615_dev *dev,
 	}
 	dev_kfree_skb(skb);
 
-	if (is_mt7663(&dev->mt76)) {
-		//hack to clear all pending packets
-		__mt7615_mcu_add_sta(dev->phy.mt76, vif, NULL, false, MCU_EXT_CMD(STA_REC_UPDATE), false);
-		__mt7615_mcu_add_sta(dev->phy.mt76, vif, NULL, true, MCU_EXT_CMD(STA_REC_UPDATE), false);
-	}
 out:
 	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(BCN_OFFLOAD), &req,
 				 sizeof(req), true);
@@ -1062,12 +991,6 @@ static int
 mt7615_mcu_add_sta(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta, bool enable)
 {
-	if (is_mt7663(&phy->dev->mt76) && !enable) {
-		//hack to clear all pending packets
-		__mt7615_mcu_add_sta(phy->mt76, vif, sta, enable, MCU_EXT_CMD(STA_REC_UPDATE), false);
-		__mt7615_mcu_add_sta(phy->mt76, vif, NULL, false, MCU_EXT_CMD(STA_REC_UPDATE), false);
-		__mt7615_mcu_add_sta(phy->mt76, vif, NULL, true, MCU_EXT_CMD(STA_REC_UPDATE), false);
-	}
 	return __mt7615_mcu_add_sta(phy->mt76, vif, sta, enable,
 				    MCU_EXT_CMD(STA_REC_UPDATE), false);
 }
@@ -2245,35 +2168,12 @@ int mt7615_mcu_set_chan_info(struct mt7615_phy *phy, int cmd)
 	return mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), true);
 }
 
-static int mt7663_mcu_get_temperature(struct mt7615_dev *dev)
-{
-	struct {
-		u8 ctrl_id;
-		u8 action;
-		u8 band;
-		u8 rsv[1];
-		u32 res;
-	} req = {
-		.ctrl_id = 0,
-		.action = 0,
-		.band = 0,
-		.res = 0,
-	};
-
-	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(THERMAL_CTRL), &req,
-				 sizeof(req), true);
-}
-
 int mt7615_mcu_get_temperature(struct mt7615_dev *dev)
 {
 	struct {
 		u8 action;
 		u8 rsv[3];
 	} req = {};
-
-	if (is_mt7663(&dev->mt76)) {
-		return mt7663_mcu_get_temperature(dev);
-	}
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(THERMAL_CTRL),
 				 &req, sizeof(req), true);

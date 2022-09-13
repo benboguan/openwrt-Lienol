@@ -113,7 +113,6 @@ int mt7615_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 void mt7615_dma_reset(struct mt7615_dev *dev)
 {
-	struct mt76_phy *mphy_ext = dev->mt76.phys[MT_BAND1];
 	int i;
 
 	mt76_clear(dev, MT_WPDMA_GLO_CFG,
@@ -122,11 +121,8 @@ void mt7615_dma_reset(struct mt7615_dev *dev)
 
 	usleep_range(1000, 2000);
 
-	for (i = 0; i < __MT_TXQ_MAX; i++) {
+	for (i = 0; i < __MT_TXQ_MAX; i++)
 		mt76_queue_tx_cleanup(dev, dev->mphy.q_tx[i], true);
-		if (mphy_ext)
-			mt76_queue_tx_cleanup(dev, mphy_ext->q_tx[i], true);
-	}
 
 	for (i = 0; i < __MT_MCUQ_MAX; i++)
 		mt76_queue_tx_cleanup(dev, dev->mt76.q_mcu[i], true);
@@ -216,8 +212,6 @@ void mt7615_mac_reset_work(struct work_struct *work)
 	if (!(READ_ONCE(dev->reset_state) & MT_MCU_CMD_STOP_PDMA))
 		return;
 
-	dev_info(dev->mt76.dev, "mt7615_mac_reset_work start\n");
-
 	ieee80211_stop_queues(mt76_hw(dev));
 	if (ext_phy)
 		ieee80211_stop_queues(ext_phy->hw);
@@ -296,5 +290,4 @@ void mt7615_mac_reset_work(struct work_struct *work)
 		ieee80211_queue_delayed_work(ext_phy->hw,
 					     &phy2->mt76->mac_work, timeout);
 
-	dev_info(dev->mt76.dev, "mt7615_mac_reset_work end\n");
 }

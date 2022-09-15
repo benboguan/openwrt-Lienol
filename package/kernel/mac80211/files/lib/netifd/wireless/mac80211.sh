@@ -310,6 +310,7 @@ mac80211_hostapd_setup_base() {
 			vht_max_a_mpdu_len_exp:7 \
 			vht_max_mpdu:11454 \
 			rx_stbc:4 \
+			tx_stbc:4 \
 			vht_link_adapt:3 \
 			vht160:2
 

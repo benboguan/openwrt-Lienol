@@ -10,6 +10,7 @@
 	- - - - - - - - - - - - - - - - -
  
 	For MT7615+MT7615, MT7603+MT7615 and MT7603+MT7612
+	https://github.com/Azexios/openwrt-r3p-mtk
 -->
 
 <%
@@ -80,12 +81,12 @@ table {
 	
 	<div id="loading" style="margin-top: 1em; display: none;">
 	<img src="<%=resource%>/icons/loading.gif" alt="<%:Loading%>" />
-		&nbsp;&nbsp;&nbsp; 页面加载中，请稍候......
+		&nbsp;&nbsp;&nbsp; Please waiting......
 	</div>
 
 	<% if #devs == 0 then %>
 	<fieldset class="cbi-section">
-		<legend>找不到无线设备.</legend>
+		<legend>No wireless device found.</legend>
 	</fieldset>
 	<% end %>
 
@@ -101,20 +102,20 @@ table {
 					<td colspan="2" style="text-align:left">
 						<big><strong class="ren" title="<%=dev.profile%>"> Generic Mediatek <%=dev.devname%></strong></big>
 						<br/>
-						<span><strong>工作模式:</strong>  <% if dev.ApCliEnable == "1" then %> APCli <% else %> Master AP<% end %> </span>
+						<span><strong>Work mode:</strong>  <% if dev.ApCliEnable == "1" then %> APCli <% else %> Master AP<% end %> </span>
 						<%
 						local diff = mtkwifi.diff_profile(dev.profile)
 						if next(diff) ~= nil then
 						%>
-							<br/><span style="color:red;">* 请重启无线或重启路由器以应用更改</span>
+							<br/><span style="color:red;">* need reload to apply changes</span>
 						<% 
 						end
 						%>
 					</td>
 					<td style="width:330px;text-align:right">
-						<input class="cbi-button cbi-button-reload" style="width:100px" title="重启无线" value="重启" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "reload", dev.devname)%>");' />
-						<input class="cbi-button cbi-button-edit" style="width:100px" title="无线设置" value="设置" type="button" onclick="location.href='<%=luci.dispatcher.build_url("admin", "network", "wifi", "dev_cfg_view", dev.devname)%>'" />
-						<input class="cbi-button cbi-button-add" style="width:100px" title="新增SSID" value="新增" type="button" onclick="location.href='<%=luci.dispatcher.build_url("admin", "network", "wifi", "vif_add_view", dev.devname, dev.vifs.__prefix)%>'" />
+						<input class="cbi-button cbi-button-reload" style="width:100px" title="Reload Wi-Fi network" value="Reload" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "reload", dev.devname)%>");' />
+						<input class="cbi-button cbi-button-edit" style="width:100px" title="Configure Wi-Fi device" value="Config" type="button" onclick="location.href='<%=luci.dispatcher.build_url("admin", "network", "wifi", "dev_cfg_view", dev.devname)%>'" />
+						<input class="cbi-button cbi-button-add" style="width:100px" title="Add Wi-Fi network" value="Add" type="button" onclick="location.href='<%=luci.dispatcher.build_url("admin", "network", "wifi", "vif_add_view", dev.devname, dev.vifs.__prefix)%>'" />
 					</td>
 				</tr>
 				<!-- /physical device -->
@@ -129,24 +130,24 @@ table {
 						<img src="/luci-static/resources/icons/signal-none.png" alt="" />
 						<% end %>
 					</td>
-					<td class="cbi-value-field" style="min-width:150px;vertical-align:middle; text-align:left; padding:3px"><strong>接口:</strong> <%=vif.vifname%> | <strong>类型:</strong> AP | <strong>无线名称:</strong> <%=vif.__ssid%> | <strong>信道:</strong> <%=vif.__channel%>
+					<td class="cbi-value-field" style="min-width:150px;vertical-align:middle; text-align:left; padding:3px"><strong>Interface:</strong> <%=vif.vifname%> | <strong>Type:</strong> AP | <strong>SSID:</strong> <%=vif.__ssid%> | <strong>Channel:</strong> <%=vif.__channel%>
 						<br/>
 						<% if vif.state == "up" then %>
-						<strong>BSSID:</strong> <%=vif.__bssid%> | <strong>模式:</strong> <%=dev.WirelessModeList[tonumber(vif.__wirelessmode or dev.WirelessMode)]%>
+						<strong>BSSID:</strong> <%=vif.__bssid%> | <strong>Mode:</strong> <%=dev.WirelessModeList[tonumber(vif.__wirelessmode or dev.WirelessMode)]%>
 						<% else %>
-						无线功能已禁用或未关联
+						Wireless is disabled
 						<% end %>
 					</td>
 					<td class="cbi-value-field" style="text-align:right">
 						<% if not vif.state then %>
-						<input class="cbi-button cbi-button-apply" style="width:100px" title="启用无线" value="启用" type="button" onclick="alert('Please restart manually to create this interface.')" />
+						<input class="cbi-button cbi-button-apply" style="width:100px" title="Enable this Wi-Fi network" value="Enable" type="button" onclick="alert('Please restart manually to create this interface.')" />
 						<% elseif vif.state == "up" then %>
-						<input class="cbi-button cbi-button-reset" style="width:100px" title="禁用无线" value="停用" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "vif_disable", vif.vifname)%>")' />
+						<input class="cbi-button cbi-button-reset" style="width:100px" title="Disable this Wi-Fi network" value="Disable" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "vif_disable", vif.vifname)%>")' />
 						<% else %>
-						<input class="cbi-button cbi-button-apply" style="width:100px" title="启用无线" value="启用" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "vif_enable", vif.vifname)%>")' />
+						<input class="cbi-button cbi-button-apply" style="width:100px" title="Enable this Wi-Fi network" value="Enable" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "vif_enable", vif.vifname)%>")' />
 						<% end %>
-						<input class="cbi-button cbi-button-edit" style="width:100px" title="修改无线" value="设置" type="button" onclick="location.href='<%=luci.dispatcher.build_url("admin", "network", "wifi", "vif_cfg_view", dev.devname, vif.vifname)%>'" />
-						<input class="cbi-button cbi-button-remove" style="width:100px" title="删除网络" value="移除" type="button" onclick="if (confirm('你将要删除此接口 <%=vif.vifname%>, 确定吗？')) location.href='<%=luci.dispatcher.build_url("admin", "network", "wifi", "vif_del", dev.devname, vif.vifname)%>'" />
+						<input class="cbi-button cbi-button-edit" style="width:100px" title="Edit this Wi-Fi network" value="Config" type="button" onclick="location.href='<%=luci.dispatcher.build_url("admin", "network", "wifi", "vif_cfg_view", dev.devname, vif.vifname)%>'" />
+						<input class="cbi-button cbi-button-remove" style="width:100px" title="Delete this Wi-Fi network" value="Remove" type="button" onclick="if (confirm('You are going to delete the interface <%=vif.vifname%>, are you sure?')) location.href='<%=luci.dispatcher.build_url("admin", "network", "wifi", "vif_del", dev.devname, vif.vifname)%>'" />
 					</td>
 				</tr>
 				<% end %>
@@ -157,7 +158,7 @@ table {
 					<td></td>
 					<td class="cbi-value-field" style="width:16px; padding:3px">
 						<% if dev.apcli.state == "up" then %>
-							<% if dev.apcli.status == "已连接" then %>
+							<% if dev.apcli.status == "Connected" then %>
 							<img src="/luci-static/resources/icons/signal-75-100.png" alt="" />
 							<% else %>
 							<img src="/luci-static/resources/icons/signal-0.png" alt="" />
@@ -168,28 +169,28 @@ table {
 					</td>
 					<td class="cbi-value-field" style="min-width:150px;vertical-align:middle; text-align:left; padding:3px"><strong>Interface:</strong> <%=dev.apcli.devname%> | <strong>Type:</strong> STA | <strong>Status:</strong> <%=dev.apcli.status%>
 						<br/>
-						<% if dev.apcli.status == "已连接" then %>
+						<% if dev.apcli.status == "Connected" then %>
 						<strong>BSSID:</strong> <%=dev.apcli.bssid%> |
-						<strong>上级SSID:</strong> <%=dev.apcli.ssid%>
+						<strong>SSID:</strong> <%=dev.apcli.ssid%>
 						<br/>
-						<strong>信号:</strong> <%=dev.apcli.signal%> | <strong>速率:</strong> <%=dev.apcli.rate%>
+						<strong>Signal level:</strong> <%=dev.apcli.signal%> | <strong>Bit Rate:</strong> <%=dev.apcli.rate%>
 						<% else %>
 							<% if dev.apcli.state == "up" then %>
-							无线未连接
+							Wireless is not associated
 							<% else %>
-							无线已关闭
+							Wireless is disabled
 							<% end %>
 						<% end %>
 					</td>
 					<td style="text-align:right">
 						<% if dev.apcli.state == "up" then %>
-						<input class="cbi-button cbi-button-reload" style="width:100px" title="重连中继" value="重接" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "apcli_connect", dev.devname, dev.apcli.vifname)%>")' />
-						<input class="cbi-button cbi-button-remove" style="width:100px" title="断开中继" value="断开" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "apcli_disconnect", dev.devname, dev.apcli.vifname)%>")' />
+						<input class="cbi-button cbi-button-reload" style="width:100px" title="Reconnect Wi-Fi network" value="Reconnect" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "apcli_connect", dev.devname, dev.apcli.vifname)%>")' />
+						<input class="cbi-button cbi-button-remove" style="width:100px" title="Disable Wi-Fi network" value="Disable" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "apcli_disconnect", dev.devname, dev.apcli.vifname)%>")' />
 						<% else %>
-						<input class="cbi-button cbi-button-reload" style="width:100px" disabled="disabled" title="重连中继" value="重连" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "apcli_connect", dev.devname, dev.apcli.vifname)%>")' />
-						<input class="cbi-button cbi-button-reload" style="width:100px" title="连接中继" value="连接" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "apcli_connect", dev.devname, dev.apcli.vifname)%>")' />
+						<input class="cbi-button cbi-button-reload" style="width:100px" disabled="disabled" title="Reconnect Wi-Fi network" value="Reconnect" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "apcli_connect", dev.devname, dev.apcli.vifname)%>")' />
+						<input class="cbi-button cbi-button-reload" style="width:100px" title="Enable Wi-Fi network" value="Enable" type="button" onclick='wifi_reload("<%=luci.dispatcher.build_url("admin", "network", "wifi", "apcli_connect", dev.devname, dev.apcli.vifname)%>")' />
 						<% end %>
-						<input class="cbi-button cbi-button-edit" style="width:100px" title="修改中继" value="设置" type="button" onclick="location.href='<%=luci.dispatcher.build_url("admin", "network", "wifi", "apcli_cfg_view", dev.devname, dev.apcli.vifname)%>'" />
+						<input class="cbi-button cbi-button-edit" style="width:100px" title="Configure Wi-Fi device" value="Config" type="button" onclick="location.href='<%=luci.dispatcher.build_url("admin", "network", "wifi", "apcli_cfg_view", dev.devname, dev.apcli.vifname)%>'" />
 					</td>
 				</tr>
 				<% end %>

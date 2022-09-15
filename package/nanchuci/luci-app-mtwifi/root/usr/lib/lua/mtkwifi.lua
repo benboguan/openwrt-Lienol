@@ -16,6 +16,7 @@
  - - - - - - - - - - - - - - - - - - - - - - - - - - -
  
  For MT7615+MT7615, MT7603+MT7615 and MT7603+MT7612
+ https://github.com/Azexios/openwrt-r3p-mtk
 ]]
 
 local mtkwifi = {}
@@ -614,10 +615,10 @@ function mtkwifi.__setup_apcli(cfgs, devname, mainidx, subidx)
 		local flags = tonumber(mtkwifi.read_pipe("cat /sys/class/net/"..apcli_name.."/flags 2>/dev/null")) or 0
 		apcli.state = flags%2 == 1 and "up" or "down"
 		if not ssid or ssid == "" then
-			apcli.status = "未连接"
+			apcli.status = "Disconnected"
 		else
 			apcli.ssid = ssid
-			apcli.status = "已连接"
+			apcli.status = "Connected"
 		end
 		apcli.devname = apcli_name
 		apcli.bssid = mtkwifi.read_pipe("iwconfig "..apcli_name.." | grep Point | sed 's/.*Point: //' 2>/dev/null") or "?"

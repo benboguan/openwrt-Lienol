@@ -8,6 +8,7 @@
 -- - - - - - - - - - - - - - - - - -
 --
 -- For MT7615+MT7615, MT7603+MT7615 and MT7603+MT7612
+-- https://github.com/Azexios/openwrt-r3p-mtk
 
 module("luci.controller.mtkwifi", package.seeall)
 local http = require("luci.http")

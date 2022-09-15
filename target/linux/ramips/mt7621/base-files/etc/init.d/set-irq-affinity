@@ -1,11 +1,8 @@
 #!/bin/sh /etc/rc.common
-#MTK-Wi-Fi
 
 START=99
 
 start() {
-	/sbin/mtk-wifi.sh &
-
 	if grep -q 'processor.*: 2' /proc/cpuinfo; then
 		mask=4
 	elif grep -q 'processor.*: 1' /proc/cpuinfo; then

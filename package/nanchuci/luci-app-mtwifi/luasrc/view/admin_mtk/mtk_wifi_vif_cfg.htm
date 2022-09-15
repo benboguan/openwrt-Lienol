@@ -10,6 +10,7 @@
 	- - - - - - - - - - - - - - - - -
 
 	For MT7615+MT7615, MT7603+MT7615 and MT7603+MT7612
+	https://github.com/Azexios/openwrt-r3p-mtk
 -->
 
 <%
@@ -83,7 +84,7 @@ table {
 <div id="container">
 	<div id="loading" style="margin-top: 1em; display: none;">
 	<img src="<%=resource%>/icons/loading.gif" alt="<%:Loading%>" />
-		&nbsp;&nbsp;&nbsp; 加载中，请稍候......
+		&nbsp;&nbsp;&nbsp; Please waiting......
 	</div>
 
 	<form method="post" name="cbi" action="<%=luci.dispatcher.build_url("admin", "network", "wifi", "vif_cfg", devname, vifname)%>" enctype="multipart/form-data" autocomplete="off">
@@ -94,7 +95,7 @@ table {
 		</fieldset>
 	<% else %>
 		<fieldset class="cbi-section">
-		<legend><span class="ren">无线高级设置 - <%=vifname and devname.."@"..vifname or devname%></span>
+		<legend><span class="ren">Interface Configurations - <%=vifname and devname.."@"..vifname or devname%></span>
 	<%
 	local diff = mtkwifi.diff_profile(dev.profile)
 	if next(diff) ~= nil then
@@ -128,7 +129,7 @@ table {
 			</tr>
 			<% end %>
 			<tr>
-				<td>加密</td>
+				<td>Auth Mode</td>
 				<td>
 				<select name="__authmode" id="AuthMode" onchange="AuthMode_onchange(this.options[this.options.selectedIndex].value)">
 					<%
@@ -174,7 +175,7 @@ table {
 			</tbody>
 			<tbody id="wpacommon" style="display:none;">
 			<tr>
-				<td>算法</td>
+				<td>WPA Algorithm</td>
 				<td>
 				<select name="__wpa_encrypttype" id="__wpa_encrypttype">
 				<% for _,v in ipairs(dev.WPA_Enc_List) do %>
@@ -186,7 +187,7 @@ table {
 			</tbody>
 			<tbody id="wpacommon3" style="display:none;">
 			<tr>
-				<td>算法</td>
+				<td>WPA Algorithm</td>
 				<td>
 				<select name="wpacommon3" disabled="disabled">
 					<option selected="selected">AES</option>
@@ -196,7 +197,7 @@ table {
 			</tbody>
 			<tbody id="key_r" style="display:none;">
 			<tr>
-				<td>密钥更新周期</td>
+				<td>Key Renewal Interval</td>
 				<td>
 				<input value="<%=vif.__rekeyinterval%>" type="text" name="__rekeyinterval" /><span class="he1">second(s) (0 ~ 4194303, default 86400)</span>
 				</td>
@@ -204,7 +205,7 @@ table {
 			</tbody>
 			<tbody id="WPA2PSK" style="display:none;">
 			<tr>
-				<td>密钥</td>
+				<td>Key</td>
 				<td>
 				<input value="<%=vif.__wpapsk%>" type="text" name="<%="WPAPSK"..vifidx%>" id="<%="WPAPSK"..vifidx%>" />
 				</td>
@@ -316,9 +317,9 @@ table {
 				<td>802.11w MFP</td>
 				<td>
 				<select style="width:auto" name="__mfp" id="__mfp">
-					<option value="0" <% if vif.__mfpc == "0" and vif.__mfpr == "0" then %>selected="selected"<% end%>>禁用</option>
-					<option value="1" <% if vif.__mfpc == "1" and vif.__mfpr == "1" then %>selected="selected"<% end%>>必须</option>
-					<option value="2" <% if vif.__mfpc == "1" and vif.__mfpr == "0" then %>selected="selected"<% end%>>可选</option>
+					<option value="0" <% if vif.__mfpc == "0" and vif.__mfpr == "0" then %>selected="selected"<% end%>>Disabled</option>
+					<option value="1" <% if vif.__mfpc == "1" and vif.__mfpr == "1" then %>selected="selected"<% end%>>Required</option>
+					<option value="2" <% if vif.__mfpc == "1" and vif.__mfpr == "0" then %>selected="selected"<% end%>>Optional</option>
 				</select>
 				</td>
 			</tr>
@@ -404,7 +405,7 @@ table {
 			</tbody>
 			<tbody>
 			<tr>
-				<td>隐藏 SSID</td>
+				<td>Hidden SSID</td>
 				<td>
 				<input name="__hidessid" value="1"
 				<% if vif.__hidessid == "1" then %>
@@ -413,7 +414,7 @@ table {
 				</td>
 			</tr>
 			<tr>
-				<td>隔离客户端</td>
+				<td>AP Isolation</td>
 				<td>
 				<input name="__noforwarding" value="1"
 				<% if vif.__noforwarding == "1" then %>
@@ -422,7 +423,7 @@ table {
 				</td>
 			</tr>
 			<tr>
-				<td>WMM 模式</td>
+				<td>WMM QoS</td>
 				<td>
 				<input name="__wmmcapable" value="1"
 				<% if vif.__wmmcapable ~= "0" then %>
@@ -430,12 +431,14 @@ table {
 				<% end %> type="checkbox" />
 				</td>
 			</tr>
+	<!--
 			<tr>
-				<td>强制发射速率 ( 0为自动，建议值 ）</td>
+				<td>TX Rate</td>
 				<td>
 				<input value="<%=vif.__txrate or 0%>" name="__txrate" id="__txrate" />
 				</td>
 			</tr>
+	-->
 			</tbody>
 			<tfoot>
 			<tr>
@@ -447,10 +450,10 @@ table {
 		</fieldset>
 
 		<div class="cbi-page-actions">
-			<input class="cbi-button cbi-button-link" value="返回" type="button" onclick="location.href='<%=luci.dispatcher.build_url("admin", "network", "wifi")%>'" />
-			<input class="cbi-button cbi-button-positive" value="保存" type="submit" />
-			<input class="cbi-button cbi-button-apply" value="保存并应用" type="submit" onclick='save_apply()' />
-			<input class="cbi-button cbi-button-reset" value="重置" type="reset" />
+			<input class="cbi-button cbi-button-link" value="Back" type="button" onclick="location.href='<%=luci.dispatcher.build_url("admin", "network", "wifi")%>'" />
+			<input class="cbi-button cbi-button-positive" value="Save" type="submit" />
+			<input class="cbi-button cbi-button-apply" value="Save & Apply" type="submit" onclick='save_apply()' />
+			<input class="cbi-button cbi-button-reset" value="Reset" type="reset" />
 		</div>
 	<% end %>
 	</form>

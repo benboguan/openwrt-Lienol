@@ -218,8 +218,6 @@ define KernelPackage/mt7615d/install
 	$(INSTALL_DATA) ./src/bin/mt7615/MT7615_cr4.bin $(1)/lib/firmware/mediatek/
 	$(INSTALL_DATA) ./src/bin/mt7615/mt7615_patch_e3_hdr.bin $(1)/lib/firmware/mediatek/
 	$(INSTALL_DATA) ./src/bin/mt7615/WIFI_RAM_CODE_MT7615.bin $(1)/lib/firmware/mediatek/
-	$(INSTALL_DATA) ./src/bin/mt7615/WIFI_RAM_CODE_MT7615_E1.bin $(1)/lib/firmware/mediatek/
-	$(INSTALL_DATA) ./src/bin/mt7615/WIFI_RAM_CODE_MT7615_plain.bin $(1)/lib/firmware/mediatek/
 	$(INSTALL_DATA) ./src/bin/mt7615/ePAeLNA/MT7615_EEPROM.bin $(1)/lib/firmware/mediatek/ePAeLNA/
 	$(INSTALL_DATA) ./src/bin/mt7615/ePAiLNA/MT7615_EEPROM.bin $(1)/lib/firmware/mediatek/ePAiLNA/
 	$(INSTALL_DATA) ./src/bin/mt7615/iPAeLNA/MT7615_EEPROM.bin $(1)/lib/firmware/mediatek/iPAeLNA/

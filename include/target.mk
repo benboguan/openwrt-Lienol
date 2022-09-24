@@ -60,6 +60,7 @@ DEFAULT_PACKAGES.router:=\
 	dnsmasq-full \
 	firewall \
 	ip6tables \
+	ip6tables-zz-legacy \
 	iptables \
 	kmod-nft-offload \
 	odhcp6c \

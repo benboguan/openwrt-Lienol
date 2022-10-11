@@ -233,6 +233,7 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb)
 	u8 remove_pad, amsdu_info;
 	u8 mode = 0, qos_ctl = 0;
 	struct mt7915_sta *msta = NULL;
+	u32 csum_status = *(u32 *)skb->cb;
 	bool hdr_trans;
 	u16 hdr_gap;
 	u16 seq_ctrl = 0;
@@ -288,7 +289,8 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb)
 	if (!sband->channels)
 		return -EINVAL;
 
-	if ((rxd0 & csum_mask) == csum_mask)
+	if ((rxd0 & csum_mask) == csum_mask &&
+	    !(csum_status & (BIT(0) | BIT(2) | BIT(3))))
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
 
 	if (rxd1 & MT_RXD1_NORMAL_FCS_ERR)
@@ -446,14 +448,14 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb)
 			 * When header translation failure is indicated,
 			 * the hardware will insert an extra 2-byte field
 			 * containing the data length after the protocol
-			 * type field.
+			 * type field. This happens either when the LLC-SNAP
+			 * pattern did not match, or if a VLAN header was
+			 * detected.
 			 */
 			pad_start = 12;
 			if (get_unaligned_be16(skb->data + pad_start) == ETH_P_8021Q)
 				pad_start += 4;
-
-			if (get_unaligned_be16(skb->data + pad_start) !=
-			    skb->len - pad_start - 2)
+			else
 				pad_start = 0;
 		}
 
@@ -903,17 +905,19 @@ mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
 
 	total = le16_get_bits(free->ctrl, MT_TX_FREE_MSDU_CNT);
 	v3 = (FIELD_GET(MT_TX_FREE_VER, txd) == 0x4);
-	if (WARN_ON_ONCE((void *)&tx_info[total >> v3] > end))
-		return;
 
 	for (cur_info = tx_info; count < total; cur_info++) {
-		u32 msdu, info = le32_to_cpu(*cur_info);
+		u32 msdu, info;
 		u8 i;
+
+		if (WARN_ON_ONCE((void *)cur_info >= end))
+			return;
 
 		/*
 		 * 1'b1: new wcid pair.
 		 * 1'b0: msdu_id with the same 'wcid pair' as above.
 		 */
+		info = le32_to_cpu(*cur_info);
 		if (info & MT_TX_FREE_PAIR) {
 			struct mt7915_sta *msta;
 			struct mt76_wcid *wcid;
@@ -1149,7 +1153,7 @@ void mt7915_mac_set_timing(struct mt7915_phy *phy)
 		  FIELD_PREP(MT_TIMEOUT_VAL_CCA, 48);
 	u32 ofdm = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, 60) |
 		   FIELD_PREP(MT_TIMEOUT_VAL_CCA, 28);
-	int offset;
+	int eifs_ofdm = 360, sifs = 10, offset;
 	bool a_band = !(phy->mt76->chandef.chan->band == NL80211_BAND_2GHZ);
 
 	if (!test_bit(MT76_STATE_RUNNING, &phy->mt76->state))
@@ -1167,16 +1171,25 @@ void mt7915_mac_set_timing(struct mt7915_phy *phy)
 	reg_offset = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, offset) |
 		     FIELD_PREP(MT_TIMEOUT_VAL_CCA, offset);
 
+	if (!is_mt7915(&dev->mt76)) {
+		if (!a_band) {
+			mt76_wr(dev, MT_TMAC_ICR1(phy->band_idx),
+				FIELD_PREP(MT_IFS_EIFS_CCK, 314));
+			eifs_ofdm = 78;
+		} else {
+			eifs_ofdm = 84;
+		}
+	} else if (a_band) {
+		sifs = 16;
+	}
+
 	mt76_wr(dev, MT_TMAC_CDTR(phy->band_idx), cck + reg_offset);
 	mt76_wr(dev, MT_TMAC_ODTR(phy->band_idx), ofdm + reg_offset);
 	mt76_wr(dev, MT_TMAC_ICR0(phy->band_idx),
-		FIELD_PREP(MT_IFS_EIFS_OFDM, a_band ? 84 : 78) |
+		FIELD_PREP(MT_IFS_EIFS_OFDM, eifs_ofdm) |
 		FIELD_PREP(MT_IFS_RIFS, 2) |
-		FIELD_PREP(MT_IFS_SIFS, 10) |
+		FIELD_PREP(MT_IFS_SIFS, sifs) |
 		FIELD_PREP(MT_IFS_SLOT, phy->slottime));
-
-	mt76_wr(dev, MT_TMAC_ICR1(phy->band_idx),
-		FIELD_PREP(MT_IFS_EIFS_CCK, 314));
 
 	if (phy->slottime < 20 || a_band)
 		val = MT7915_CFEND_RATE_DEFAULT;
@@ -1814,6 +1827,13 @@ static int mt7915_dfs_start_rdd(struct mt7915_dev *dev, int chain)
 	if (err < 0)
 		return err;
 
+	if (is_mt7915(&dev->mt76)) {
+		err = mt76_connac_mcu_rdd_cmd(&dev->mt76, RDD_SET_WF_ANT, chain,
+					      0, dev->dbdc_support ? 2 : 0);
+		if (err < 0)
+			return err;
+	}
+
 	return mt76_connac_mcu_rdd_cmd(&dev->mt76, RDD_DET_MODE, chain,
 				       MT_RX_SEL0, 1);
 }
@@ -1933,6 +1953,14 @@ stop:
 				      phy->band_idx, MT_RX_SEL0, 0);
 	if (err < 0)
 		return err;
+
+	if (is_mt7915(&dev->mt76)) {
+		err = mt76_connac_mcu_rdd_cmd(&dev->mt76, RDD_SET_WF_ANT,
+					      phy->band_idx, 0,
+					      dev->dbdc_support ? 2 : 0);
+		if (err < 0)
+			return err;
+	}
 
 	mt7915_dfs_stop_radar_detector(phy);
 	phy->mt76->dfs_state = MT_DFS_STATE_DISABLED;

@@ -26,6 +26,8 @@ enum reg_rev {
 	INFRA_MCU_ADDR_END,
 	FW_EXCEPTION_ADDR,
 	SWDEF_BASE_ADDR,
+	TXQ_WED_RING_BASE,
+	RXQ_WED_RING_BASE,
 	__MT_REG_MAX,
 };
 
@@ -596,6 +598,7 @@ enum offs_rev {
 #define MT_PCIE_RECOG_ID_MASK		GENMASK(30, 0)
 #define MT_PCIE_RECOG_ID_SEM		BIT(31)
 
+#define MT_INT_WED_SOURCE_CSR		MT_WFDMA_EXT_CSR(0x200)
 #define MT_INT_WED_MASK_CSR		MT_WFDMA_EXT_CSR(0x204)
 
 #define MT_WED_TX_RING_BASE		MT_WFDMA_EXT_CSR(0x300)
@@ -642,6 +645,9 @@ enum offs_rev {
 #define MT_TXQ_EXT_CTRL(q)		(MT_Q_BASE(__TXQ(q)) + 0x600 +	\
 					 MT_TXQ_ID(q)* 0x4)
 
+#define MT_TXQ_WED_RING_BASE		__REG(TXQ_WED_RING_BASE)
+#define MT_RXQ_WED_RING_BASE		__REG(RXQ_WED_RING_BASE)
+
 #define MT_INT_SOURCE_CSR		__REG(INT_SOURCE_CSR)
 #define MT_INT_MASK_CSR			__REG(INT_MASK_CSR)
 
@@ -659,6 +665,11 @@ enum offs_rev {
 #define MT_INT_RX_DONE_BAND1_MT7916	BIT(23)
 #define MT_INT_RX_DONE_WA_MAIN_MT7916	BIT(2)
 #define MT_INT_RX_DONE_WA_EXT_MT7916	BIT(3)
+
+#define MT_INT_WED_RX_DONE_BAND0_MT7916		BIT(18)
+#define MT_INT_WED_RX_DONE_BAND1_MT7916		BIT(19)
+#define MT_INT_WED_RX_DONE_WA_MAIN_MT7916	BIT(1)
+#define MT_INT_WED_RX_DONE_WA_MT7916		BIT(17)
 
 #define MT_INT_RX(q)			(dev->q_int_mask[__RXQ(q)])
 #define MT_INT_TX_MCU(q)		(dev->q_int_mask[(q)])
@@ -683,6 +694,8 @@ enum offs_rev {
 #define MT_INT_TX_DONE_BAND0		BIT(30)
 #define MT_INT_TX_DONE_BAND1		BIT(31)
 #define MT_INT_TX_DONE_MCU_WA_MT7916	BIT(25)
+#define MT_INT_WED_TX_DONE_BAND0	BIT(4)
+#define MT_INT_WED_TX_DONE_BAND1	BIT(5)
 
 #define MT_INT_TX_DONE_MCU		(MT_INT_TX_MCU(MT_MCUQ_WA) |	\
 					 MT_INT_TX_MCU(MT_MCUQ_WM) |	\

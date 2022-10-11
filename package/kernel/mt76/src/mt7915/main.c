@@ -957,17 +957,15 @@ mt7915_set_antenna(struct ieee80211_hw *hw, u32 tx_ant, u32 rx_ant)
 	if (!tx_ant || tx_ant != rx_ant || ffs(tx_ant) > max_nss)
 		return -EINVAL;
 
-	if ((BIT(hweight8(tx_ant)) - 1) != tx_ant)
-		tx_ant = BIT(ffs(tx_ant) - 1) - 1;
-
 	mutex_lock(&dev->mt76.mutex);
 
 	phy->mt76->antenna_mask = tx_ant;
 
-	if (ext_phy)
-		tx_ant <<= dev->chainshift;
-
-	phy->mt76->chainmask = tx_ant;
+	/* handle a variant of mt7916 which has 3T3R but nss2 on 5 GHz band */
+	if (is_mt7916(&dev->mt76) && ext_phy && hweight8(tx_ant) == max_nss)
+		phy->mt76->chainmask = dev->chainmask >> dev->chainshift;
+	else
+		phy->mt76->chainmask = tx_ant << (dev->chainshift * ext_phy);
 
 	mt76_set_stream_caps(phy->mt76, true);
 	mt7915_set_stream_vht_txbf_caps(phy);
@@ -1430,7 +1428,7 @@ mt7915_net_fill_forward_path(struct ieee80211_hw *hw,
 	path->dev = ctx->dev;
 	path->mtk_wdma.wdma_idx = wed->wdma_idx;
 	path->mtk_wdma.bss = mvif->mt76.idx;
-	path->mtk_wdma.wcid = msta->wcid.idx;
+	path->mtk_wdma.wcid = is_mt7915(&dev->mt76) ? msta->wcid.idx : 0x3ff;
 	path->mtk_wdma.queue = phy != &dev->phy;
 
 	ctx->dev = NULL;

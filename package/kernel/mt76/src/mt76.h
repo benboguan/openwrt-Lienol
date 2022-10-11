@@ -415,6 +415,7 @@ struct mt76_hw_cap {
 #define MT_DRV_SW_RX_AIRTIME		BIT(2)
 #define MT_DRV_RX_DMA_HDR		BIT(3)
 #define MT_DRV_HW_MGMT_TXQ		BIT(4)
+#define MT_DRV_AMSDU_OFFLOAD		BIT(5)
 
 struct mt76_driver_ops {
 	u32 drv_flags;
@@ -468,19 +469,6 @@ struct mt76_channel_state {
 struct mt76_sband {
 	struct ieee80211_supported_band sband;
 	struct mt76_channel_state *chan;
-};
-
-struct mt76_rate_power {
-	union {
-		struct {
-			s8 cck[4];
-			s8 ofdm[8];
-			s8 stbc[10];
-			s8 ht[16];
-			s8 vht[10];
-		};
-		s8 all[48];
-	};
 };
 
 /* addr req mask */
@@ -801,8 +789,6 @@ struct mt76_dev {
 
 	struct debugfs_blob_wrapper eeprom;
 	struct debugfs_blob_wrapper otp;
-
-	struct mt76_rate_power rate_power;
 
 	char alpha2[3];
 	enum nl80211_dfs_regions region;

@@ -664,11 +664,6 @@ mt7615_mcu_add_dev(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 }
 
 static int
-__mt7615_mcu_add_sta(struct mt76_phy *phy, struct ieee80211_vif *vif,
-		     struct ieee80211_sta *sta, bool enable, int cmd,
-		     bool offload_fw);
-
-static int
 mt7615_mcu_add_beacon_offload(struct mt7615_dev *dev,
 			      struct ieee80211_hw *hw,
 			      struct ieee80211_vif *vif, bool enable)

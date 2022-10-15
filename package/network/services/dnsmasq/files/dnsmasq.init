@@ -33,7 +33,6 @@ dnsmasq_ignore_opt() {
 		[ "${dnsmasq_features#* DNSSEC }" = "$dnsmasq_features" ] || dnsmasq_has_dnssec=1
 		[ "${dnsmasq_features#* TFTP }" = "$dnsmasq_features" ] || dnsmasq_has_tftp=1
 		[ "${dnsmasq_features#* ipset }" = "$dnsmasq_features" ] || dnsmasq_has_ipset=1
-		[ "${dnsmasq_features#* nftset }" = "$dnsmasq_features" ] || dnsmasq_has_nftset=1
 	fi
 
 	case "$opt" in
@@ -56,8 +55,6 @@ dnsmasq_ignore_opt() {
 			[ -z "$dnsmasq_has_tftp" ] ;;
 		ipset)
 			[ -z "$dnsmasq_has_ipset" ] ;;
-		nftset)
-			[ -z "$dnsmasq_has_nftset" ] ;;
 		*)
 			return 1
 	esac
@@ -799,41 +796,25 @@ dhcp_relay_add() {
 
 dnsmasq_ipset_add() {
 	local cfg="$1"
-	local ipsets nftsets domains
+	local ipsets domains
 
 	add_ipset() {
 		ipsets="${ipsets:+$ipsets,}$1"
-	}
-
-	add_nftset() {
-		local IFS=,
-		for set in $1; do
-			local family=$(echo "$set" | sed -nre 's#^.*[^0-9]([46])$#\1#p')
-			[ -n "$family" ] || \
-				family=$(nft -t list set inet "$table" "$set" 2>&1 | sed -nre 's#^\t\ttype .*\bipv([46])_addr\b.*$#\1#p')
-
-			[ -n "$family" ] || \
-				logger -t dnsmasq "Cannot infer address family from non-existent nftables set '$set'"
-
-			nftsets="${nftsets:+$nftsets,}${family:+$family#}inet#$table#$set"
-		done
 	}
 
 	add_domain() {
 		# leading '/' is expected
 		domains="$domains/$1"
 	}
-	config_get table "$cfg" table 'fw4'
+
 	config_list_foreach "$cfg" "name" add_ipset
-	config_list_foreach "$cfg" "name" add_nftset
 	config_list_foreach "$cfg" "domain" add_domain
 
-	if [ -z "$ipsets" ] || [ -z "$nftsets" ] || [ -z "$domains" ]; then
+	if [ -z "$ipsets" ] || [ -z "$domains" ]; then
 		return 0
 	fi
 
 	xappend "--ipset=$domains/$ipsets"
-	xappend "--nftset=$domains/$nftsets"
 }
 
 dnsmasq_start()
@@ -875,12 +856,6 @@ dnsmasq_start()
 	# if we did this last, we could override auto-generated config
 	[ -f "${dnsmasqconffile}" ] && {
 		xappend "--conf-file=${dnsmasqconffile}"
-	}
-
-	config_get_bool boguspriv "$cfg" boguspriv 1
-	[ "$boguspriv" -gt 0 ] && {
-		xappend "--bogus-priv"
-		[ -r "$RFC6761FILE" ] && xappend "--conf-file=$RFC6761FILE"
 	}
 
 	$PROG --version | grep -osqE "^Compile time options:.* DHCPv6( |$)" && DHCPv6CAPABLE=1 || DHCPv6CAPABLE=0
@@ -1143,6 +1118,11 @@ dnsmasq_start()
 	config_foreach filter_dnsmasq mxhost dhcp_mx_add "$cfg"
 	echo >> $CONFIGFILE_TMP
 
+	config_get_bool boguspriv "$cfg" boguspriv 1
+	[ "$boguspriv" -gt 0 ] && {
+		xappend "--bogus-priv"
+		[ -r "$RFC6761FILE" ] && xappend "--conf-file=$RFC6761FILE"
+	}
 
 	if [ "$DNSMASQ_DHCP_VER" -gt 4 ] ; then
 		# Enable RA feature for when/if it is constructed,

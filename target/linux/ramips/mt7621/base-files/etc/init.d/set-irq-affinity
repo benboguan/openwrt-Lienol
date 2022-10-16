@@ -23,6 +23,8 @@ start() {
 	[ -e "/sys/class/net/apcli0/queues/rx-0/rps_cpus" ] && echo "6" > "/sys/class/net/apcli0/queues/rx-0/rps_cpus"
 	[ -e "/sys/class/net/apclix0/queues/rx-0/rps_cpus" ] && echo "6" > "/sys/class/net/apclix0/queues/rx-0/rps_cpus"
 	[ -e "/sys/class/net/apclii0/queues/rx-0/rps_cpus" ] && echo "6" > "/sys/class/net/apclii0/queues/rx-0/rps_cpus"
+	[ -e "/sys/class/net/radio0/queues/rx-0/rps_cpus" ] && echo "6" > "/sys/class/net/radio0/queues/rx-0/rps_cpus"
+	[ -e "/sys/class/net/radio1/queues/rx-0/rps_cpus" ] && echo "6" > "/sys/class/net/radio1/queues/rx-0/rps_cpus"
 	[ -e "/sys/class/net/phy0-ap0/queues/rx-0/rps_cpus" ] && echo "6" > "/sys/class/net/phy0-ap0/queues/rx-0/rps_cpus"
 	[ -e "/sys/class/net/phy1-ap0/queues/rx-0/rps_cpus" ] && echo "6" > "/sys/class/net/phy1-ap0/queues/rx-0/rps_cpus"
 	[ -e "/sys/class/net/phy0-sta0/queues/rx-0/rps_cpus" ] && echo "6" > "/sys/class/net/phy0-sta0/queues/rx-0/rps_cpus"

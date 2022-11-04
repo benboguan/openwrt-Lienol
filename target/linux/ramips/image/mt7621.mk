@@ -291,6 +291,7 @@ TARGET_DEVICES += asus_rt-ac85p
 
 define Device/asus_rt-n56u-b1
   $(Device/dsa-migration)
+  $(Device/uimage-lzma-loader)
   DEVICE_VENDOR := ASUS
   DEVICE_MODEL := RT-N56U
   DEVICE_VARIANT := B1
@@ -1669,6 +1670,8 @@ define Device/raisecom_msg1500-x-00
   DEVICE_VENDOR := RAISECOM
   DEVICE_MODEL := MSG1500
   DEVICE_VARIANT := X.00
+  DEVICE_ALT0_VENDOR := Nokia
+  DEVICE_ALT0_MODEL := A-040W-Q
   DEVICE_PACKAGES := kmod-mt7615e kmod-mt7615-firmware kmod-usb3 \
 	kmod-usb-ledtrig-usbport
 endef
@@ -2259,6 +2262,26 @@ define Device/yuncore_ax820
   DEVICE_PACKAGES := kmod-mt7915e
 endef
 TARGET_DEVICES += yuncore_ax820
+
+define Device/yuncore_fap640
+  $(Device/dsa-migration)
+  $(Device/uimage-lzma-loader)
+  IMAGE_SIZE := 15808k
+  DEVICE_VENDOR := YunCore
+  DEVICE_MODEL := FAP640
+  DEVICE_PACKAGES := kmod-mt7915e
+endef
+TARGET_DEVICES += yuncore_fap640
+
+define Device/yuncore_fap690
+  $(Device/dsa-migration)
+  $(Device/uimage-lzma-loader)
+  IMAGE_SIZE := 15808k
+  DEVICE_VENDOR := YunCore
+  DEVICE_MODEL := FAP690
+  DEVICE_PACKAGES := kmod-mt7915e
+endef
+TARGET_DEVICES += yuncore_fap690
 
 define Device/zbtlink_zbt-we1326
   $(Device/dsa-migration)

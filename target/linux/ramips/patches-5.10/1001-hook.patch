@@ -1,6 +1,6 @@
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -70,6 +70,7 @@
+@@ -71,6 +71,7 @@
  #include <net/mpls.h>
  #include <net/mptcp.h>
  
@@ -125,7 +125,7 @@
  #define PPPOE_HASH_BITS 4
  #define PPPOE_HASH_SIZE (1 << PPPOE_HASH_BITS)
  #define PPPOE_HASH_MASK	(PPPOE_HASH_SIZE - 1)
-@@ -994,9 +994,33 @@
+@@ -995,9 +995,33 @@
  	return 0;
  }
  
@@ -161,7 +161,7 @@
  static int pppoe_recvmsg(struct socket *sock, struct msghdr *m,
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -1044,6 +1044,8 @@
+@@ -1018,6 +1018,8 @@
  	struct notifier_block *nb;
  };
  
@@ -170,7 +170,7 @@
  /*
   * This structure defines the management hooks for network devices.
   * The following hooks can be defined; unless noted otherwise, they are
-@@ -1545,6 +1545,7 @@
+@@ -1559,6 +1561,7 @@
  	struct net_device *	(*ndo_get_peer_dev)(struct net_device *dev);
  	int                     (*ndo_fill_forward_path)(struct net_device_path_ctx *ctx,
                                                           struct net_device_path *path);
@@ -245,7 +245,7 @@
  MODULE_AUTHOR("Ville Nuorvala");
  MODULE_DESCRIPTION("IPv6 tunneling device");
  MODULE_LICENSE("GPL");
-@@ -1938,6 +1938,23 @@
+@@ -1937,6 +1938,23 @@
  }
  EXPORT_SYMBOL(ip6_tnl_change_mtu);
  
@@ -269,7 +269,7 @@
  int ip6_tnl_get_iflink(const struct net_device *dev)
  {
  	struct ip6_tnl *t = netdev_priv(dev);
-@@ -2007,6 +2024,7 @@
+@@ -2006,6 +2024,7 @@
  	.ndo_change_mtu = ip6_tnl_change_mtu,
  	.ndo_get_stats	= ip6_get_stats,
  	.ndo_get_iflink = ip6_tnl_get_iflink,
@@ -303,7 +303,7 @@
  static const char *const tcp_conntrack_names[] = {
  	"NONE",
  	"SYN_SENT",
-@@ -479,6 +482,18 @@
+@@ -487,6 +490,18 @@
  	s32 receiver_offset;
  	bool res, in_recv_win;
  

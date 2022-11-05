@@ -1,9 +1,21 @@
---- a/arch/mips/Kconfig
-+++ b/arch/mips/Kconfig
-@@ -2466,6 +2466,17 @@ config SB1_PASS_2_1_WORKAROUNDS
+--- a/arch/mips/include/asm/dma.h	2022-03-28 15:57:11.000000000 +0800
++++ b/arch/mips/include/asm/dma.h	2022-10-10 19:39:41.967020054 +0800
+@@ -87,6 +87,8 @@
+ #if defined(CONFIG_SGI_IP22) || defined(CONFIG_SGI_IP28)
+ /* don't care; ISA bus master won't work, ISA slave DMA supports 32bit addr */
+ #define MAX_DMA_ADDRESS		PAGE_OFFSET
++#elif defined(CONFIG_MIPS_ER35_WORKAROUNDS)
++#define MAX_DMA_ADDRESS		(PAGE_OFFSET + CONFIG_MIPS_ER35_RESERVED_SPACE)
+ #else
+ #define MAX_DMA_ADDRESS		(PAGE_OFFSET + 0x01000000)
+ #endif
+
+--- a/arch/mips/Kconfig	2022-10-10 19:26:00.659722000 +0800
++++ b/arch/mips/Kconfig	2022-10-10 19:38:19.691267218 +0800
+@@ -2527,6 +2527,17 @@
  	depends on CPU_SB1 && CPU_SB1_PASS_2
  	default y
- 
+
 +config MIPS_ER35_WORKAROUNDS
 +	bool
 +	depends on SYS_SUPPORTS_MIPS_CPS
@@ -17,32 +29,22 @@
 +
  choice
  	prompt "SmartMIPS or microMIPS ASE support"
- 
---- a/arch/mips/include/asm/dma.h
-+++ b/arch/mips/include/asm/dma.h
-@@ -87,6 +87,8 @@
- #if defined(CONFIG_SGI_IP22) || defined(CONFIG_SGI_IP28)
- /* don't care; ISA bus master won't work, ISA slave DMA supports 32bit addr */
- #define MAX_DMA_ADDRESS		PAGE_OFFSET
-+#elif defined(CONFIG_MIPS_ER35_WORKAROUNDS)
-+#define MAX_DMA_ADDRESS		(PAGE_OFFSET + CONFIG_MIPS_ER35_RESERVED_SPACE)
- #else
- #define MAX_DMA_ADDRESS		(PAGE_OFFSET + 0x01000000)
- #endif
---- a/arch/mips/kernel/head.S
-+++ b/arch/mips/kernel/head.S
+
+
+--- a/arch/mips/kernel/head.S	2022-10-10 19:26:00.659722000 +0800
++++ b/arch/mips/kernel/head.S	2022-10-10 19:42:17.458014471 +0800
 @@ -22,6 +22,7 @@
  #include <asm/irqflags.h>
  #include <asm/regdef.h>
  #include <asm/mipsregs.h>
 +#include <asm/cacheops.h>
  #include <asm/stackframe.h>
- 
+
  #include <kernel-entry-init.h>
-@@ -93,6 +94,67 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
- 
+@@ -93,6 +94,67 @@
+
  	setup_c0_status_pri
- 
+
 +#ifdef CONFIG_MIPS_ER35_WORKAROUNDS
 +	/* Jump to KSEG1 so that we can perform cache related operations */
 +	PTR_LA	t0, 0f
@@ -107,36 +109,36 @@
  	/* We might not get launched at the address the kernel is linked to,
  	   so we jump there.  */
  	PTR_LA	t0, 0f
---- a/arch/mips/ralink/Kconfig
-+++ b/arch/mips/ralink/Kconfig
-@@ -59,6 +59,8 @@ choice
+
+--- a/arch/mips/ralink/Kconfig	2022-10-10 19:26:01.019459000 +0800
++++ b/arch/mips/ralink/Kconfig	2022-10-10 19:43:52.611885079 +0800
+@@ -63,6 +63,7 @@
+ 		select CLKSRC_MIPS_GIC
  		select HAVE_PCI if PCI_MT7621
- 		select WEAK_REORDERING_BEYOND_LLSC
- 		select GENERIC_CLOCKEVENTS_BROADCAST
+ 		select SOC_BUS
 +		select MIPS_ER35_WORKAROUNDS
-+
  endchoice
- 
+
  choice
---- a/arch/mips/ralink/Platform
-+++ b/arch/mips/ralink/Platform
-@@ -30,5 +30,5 @@ cflags-$(CONFIG_SOC_MT7620)	+= -I$(srctree)/arch/mips/include/asm/mach-ralink/mt
- 
+
+--- a/arch/mips/ralink/Platform	2022-03-28 15:57:11.000000000 +0800
++++ b/arch/mips/ralink/Platform	2022-10-10 19:44:28.126954727 +0800
+@@ -29,5 +29,5 @@
+
  # Ralink MT7621
  #
 -load-$(CONFIG_SOC_MT7621)	+= 0xffffffff80001000
 +load-$(CONFIG_SOC_MT7621)	+= 0xffffffff80001000+$(CONFIG_MIPS_ER35_RESERVED_SPACE)
  cflags-$(CONFIG_SOC_MT7621)	+= -I$(srctree)/arch/mips/include/asm/mach-ralink/mt7621
---- a/kernel/dma/direct.c
-+++ b/kernel/dma/direct.c
-@@ -91,6 +91,10 @@ struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
- 	struct page *page = NULL;
- 	u64 phys_mask;
- 
-+#ifdef CONFIG_MIPS_ER35_WORKAROUNDS
+
+--- a/kernel/dma/direct.c	2022-03-28 15:57:11.000000000 +0800
++++ b/kernel/dma/direct.c	2022-10-10 19:46:08.735205861 +0800
+@@ -138,6 +138,9 @@
+ 	int err;
+
+ 	size = PAGE_ALIGN(size);
++	#ifdef CONFIG_MIPS_ER35_WORKAROUNDS
 +	gfp |= __GFP_DMA;
-+#endif
-+
++	#endif
  	if (attrs & DMA_ATTR_NO_WARN)
  		gfp |= __GFP_NOWARN;
- 

@@ -6,7 +6,7 @@ PKG_RELEASE=5
 PKG_LICENSE:=GPLv2
 PKG_LICENSE_FILES:=
 
-PKG_VERSION:=20221005
+PKG_VERSION:=20221105
 
 PKG_MAINTAINER:=Felix Fietkau <nbd@nbd.name>
 PKG_USE_NINJA:=0
@@ -216,7 +216,7 @@ endef
 
 define KernelPackage/mt7915e
   $(KernelPackage/mt76-default)
-  TITLE:=MediaTek MT7915e wireless driver
+  TITLE:=MediaTek MT7915e/MT7986/MT7916 wireless driver
   DEPENDS+=@PCI_SUPPORT +kmod-mt7615-common +kmod-hwmon-core +kmod-thermal +@DRIVER_11AX_SUPPORT +@KERNEL_RELAY
   FILES:= $(PKG_BUILD_DIR)/mt7915/mt7915e.ko
   AUTOLOAD:=$(call AutoProbe,mt7915e)
@@ -224,8 +224,24 @@ endef
 
 define KernelPackage/mt7986-firmware
   $(KernelPackage/mt76-default)
-  DEPENDS:=@TARGET_mediatek_filogic
+  DEPENDS:=+@TARGET_mediatek_mt7986
   TITLE:=MediaTek MT7986 firmware
+endef
+
+define KernelPackage/besra
+  $(KernelPackage/mt76-default)
+  TITLE:=MediaTek MT7902/MT7990 wireless driver
+  DEPENDS+=@PCI_SUPPORT +kmod-mt76-core +kmod-mt76-connac +kmod-hwmon-core +kmod-thermal +@DRIVER_11AX_SUPPORT +@DRIVER_11BE_SUPPORT
+  FILES:= $(PKG_BUILD_DIR)/besra/besra.ko
+  AUTOLOAD:=$(call AutoProbe,besra)
+endef
+
+define KernelPackage/mt7996e
+  $(KernelPackage/mt76-default)
+  TITLE:=MediaTek MT7996/MT7995/MT7919 wireless driver
+  DEPENDS+=@PCI_SUPPORT +kmod-mt76-core +kmod-mt76-connac +kmod-hwmon-core +kmod-thermal +@DRIVER_11AX_SUPPORT +@DRIVER_11BE_SUPPORT
+  FILES:= $(PKG_BUILD_DIR)/mt7996/mt7996e.ko
+  AUTOLOAD:=$(call AutoProbe,mt7996e)
 endef
 
 define KernelPackage/mt7921-common
@@ -281,6 +297,11 @@ NOSTDINC_FLAGS := \
 
 ifdef CONFIG_PACKAGE_MAC80211_MESH
   NOSTDINC_FLAGS += -DCONFIG_MAC80211_MESH
+endif
+
+ifdef CONFIG_PACKAGE_MAC80211_DEBUGFS
+  NOSTDINC_FLAGS += -DCONFIG_MAC80211_DEBUGFS
+  PKG_MAKE_FLAGS += CONFIG_MAC80211_DEBUGFS=y
 endif
 
 ifdef CONFIG_PACKAGE_CFG80211_TESTMODE
@@ -345,10 +366,16 @@ ifdef CONFIG_PACKAGE_kmod-mt7663u
 endif
 ifdef CONFIG_PACKAGE_kmod-mt7915e
   PKG_MAKE_FLAGS += CONFIG_MT7915E=m
-  ifdef CONFIG_TARGET_mediatek_filogic
+  ifdef CONFIG_TARGET_mediatek_mt7986
     PKG_MAKE_FLAGS += CONFIG_MT7986_WMAC=y
     NOSTDINC_FLAGS += -DCONFIG_MT7986_WMAC
   endif
+endif
+ifdef CONFIG_PACKAGE_kmod-besra
+  PKG_MAKE_FLAGS += CONFIG_BESRA=m
+endif
+ifdef CONFIG_PACKAGE_kmod-mt7996e
+  PKG_MAKE_FLAGS += CONFIG_MT7996E=m
 endif
 ifdef CONFIG_PACKAGE_kmod-mt7921-common
   PKG_MAKE_FLAGS += CONFIG_MT7921_COMMON=m
@@ -457,6 +484,8 @@ define KernelPackage/mt7915e/install
 		$(PKG_BUILD_DIR)/firmware/mt7916_wm.bin \
 		$(PKG_BUILD_DIR)/firmware/mt7916_rom_patch.bin \
 		$(PKG_BUILD_DIR)/firmware/mt7916_eeprom.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7915_eeprom.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7915_eeprom_dbdc.bin \
 		$(1)/lib/firmware/mediatek
 endef
 
@@ -470,6 +499,45 @@ define KernelPackage/mt7986-firmware/install
 		$(PKG_BUILD_DIR)/firmware/mt7986_rom_patch.bin \
 		$(PKG_BUILD_DIR)/firmware/mt7986_eeprom_mt7975_dual.bin \
 		$(PKG_BUILD_DIR)/firmware/mt7986_eeprom_mt7976_dual.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7986_eeprom_mt7975.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7986_eeprom_mt7976.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7986_eeprom_mt7976_dbdc.bin \
+		$(1)/lib/firmware/mediatek
+ifdef CONFIG_NET_MEDIATEK_SOC_WED
+	cp \
+		$(PKG_BUILD_DIR)/firmware/mt7986_wo_0.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7986_wo_1.bin \
+		$(1)/lib/firmware/mediatek
+endif
+endef
+
+define KernelPackage/besra/install
+	$(INSTALL_DIR) $(1)/lib/firmware/mediatek
+	cp \
+		$(PKG_BUILD_DIR)/firmware/mt7902_wa.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7902_wm.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7902_rom_patch.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7902_wf_rom.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7902_wf_rom_sram.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7902_eeprom.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7902_wm_7977.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7902_wf_rom_7977.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7902_wf_rom_sram_7977.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7902_eeprom_7977.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7996_wa.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7996_wm.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7996_rom_patch.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7996_eeprom.bin \
+		$(1)/lib/firmware/mediatek
+endef
+
+define KernelPackage/mt7996e/install
+	$(INSTALL_DIR) $(1)/lib/firmware/mediatek
+	cp \
+		$(PKG_BUILD_DIR)/firmware/mt7996_wa.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7996_wm.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7996_rom_patch.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7996_eeprom.bin \
 		$(1)/lib/firmware/mediatek
 endef
 
@@ -515,5 +583,7 @@ $(eval $(call KernelPackage,mt7921-common))
 $(eval $(call KernelPackage,mt7921u))
 $(eval $(call KernelPackage,mt7921s))
 $(eval $(call KernelPackage,mt7921e))
+$(eval $(call KernelPackage,besra))
+$(eval $(call KernelPackage,mt7996e))
 $(eval $(call KernelPackage,mt76))
 $(eval $(call BuildPackage,mt76-test))

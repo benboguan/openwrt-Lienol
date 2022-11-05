@@ -256,7 +256,7 @@ int mt76_connac_init_tx_queues(struct mt76_phy *phy, int idx, int n_desc,
 {
 	int i, err;
 
-	err = mt76_init_tx_queue(phy, 0, idx, n_desc, ring_base, flags);
+	err = mt76_init_tx_queue(phy, 0, idx, n_desc, ring_base);
 	if (err < 0)
 		return err;
 

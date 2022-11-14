@@ -6,7 +6,7 @@ PKG_RELEASE=5
 PKG_LICENSE:=GPLv2
 PKG_LICENSE_FILES:=
 
-PKG_VERSION:=20221105
+PKG_VERSION:=20221113
 
 PKG_MAINTAINER:=Felix Fietkau <nbd@nbd.name>
 PKG_USE_NINJA:=0
@@ -216,10 +216,16 @@ endef
 
 define KernelPackage/mt7915e
   $(KernelPackage/mt76-default)
-  TITLE:=MediaTek MT7915e/MT7986/MT7916 wireless driver
+  TITLE:=MediaTek MT7915e/MT7986 wireless driver
   DEPENDS+=@PCI_SUPPORT +kmod-mt7615-common +kmod-hwmon-core +kmod-thermal +@DRIVER_11AX_SUPPORT +@KERNEL_RELAY
   FILES:= $(PKG_BUILD_DIR)/mt7915/mt7915e.ko
   AUTOLOAD:=$(call AutoProbe,mt7915e)
+endef
+
+define KernelPackage/mt7916-firmware
+  $(KernelPackage/mt76-default)
+  DEPENDS+=+kmod-mt7915e
+  TITLE:=MediaTek MT7916 firmware
 endef
 
 define KernelPackage/mt7986-firmware
@@ -297,11 +303,6 @@ NOSTDINC_FLAGS := \
 
 ifdef CONFIG_PACKAGE_MAC80211_MESH
   NOSTDINC_FLAGS += -DCONFIG_MAC80211_MESH
-endif
-
-ifdef CONFIG_PACKAGE_MAC80211_DEBUGFS
-  NOSTDINC_FLAGS += -DCONFIG_MAC80211_DEBUGFS
-  PKG_MAKE_FLAGS += CONFIG_MAC80211_DEBUGFS=y
 endif
 
 ifdef CONFIG_PACKAGE_CFG80211_TESTMODE
@@ -480,12 +481,19 @@ define KernelPackage/mt7915e/install
 		$(PKG_BUILD_DIR)/firmware/mt7915_wa.bin \
 		$(PKG_BUILD_DIR)/firmware/mt7915_wm.bin \
 		$(PKG_BUILD_DIR)/firmware/mt7915_rom_patch.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7915_eeprom.bin \
+		$(PKG_BUILD_DIR)/firmware/mt7915_eeprom_dbdc.bin \
+		$(1)/lib/firmware/mediatek
+endef
+
+define KernelPackage/mt7916-firmware/install
+	$(INSTALL_DIR) $(1)/lib/firmware/mediatek
+	cp \
 		$(PKG_BUILD_DIR)/firmware/mt7916_wa.bin \
 		$(PKG_BUILD_DIR)/firmware/mt7916_wm.bin \
 		$(PKG_BUILD_DIR)/firmware/mt7916_rom_patch.bin \
 		$(PKG_BUILD_DIR)/firmware/mt7916_eeprom.bin \
-		$(PKG_BUILD_DIR)/firmware/mt7915_eeprom.bin \
-		$(PKG_BUILD_DIR)/firmware/mt7915_eeprom_dbdc.bin \
+
 		$(1)/lib/firmware/mediatek
 endef
 
@@ -578,6 +586,7 @@ $(eval $(call KernelPackage,mt7663-usb-sdio))
 $(eval $(call KernelPackage,mt7663u))
 $(eval $(call KernelPackage,mt7663s))
 $(eval $(call KernelPackage,mt7915e))
+$(eval $(call KernelPackage,mt7916-firmware))
 $(eval $(call KernelPackage,mt7986-firmware))
 $(eval $(call KernelPackage,mt7921-common))
 $(eval $(call KernelPackage,mt7921u))

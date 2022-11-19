@@ -41,7 +41,7 @@ define Package/ip6tables-mod-fullconenat
   SECTION:=net
   CATEGORY:=Network
   TITLE:=FULLCONENAT ip6tables extension
-  DEPENDS:=ip6tables +kmod-nf-nat6 +kmod-ipt-fullconenat +ip6tables-mod-nat
+  DEPENDS:=+ip6tables +kmod-nf-nat6 +kmod-ipt-fullconenat +ip6tables-mod-nat
 endef
 
 define Package/ip6tables-mod-fullconenat/install
@@ -68,7 +68,7 @@ define Build/Prepare
 endef
 
 define Build/Compile
-	+$(MAKE) $(PKG_JOBS) -C "$(LINUX_DIR)" \
+	+$(KERNEL_MAKE) $(PKG_JOBS) -C "$(LINUX_DIR)" \
         CROSS_COMPILE="$(TARGET_CROSS)" \
         ARCH="$(LINUX_KARCH)" \
         M="$(PKG_BUILD_DIR)" \

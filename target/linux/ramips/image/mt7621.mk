@@ -1731,7 +1731,7 @@ define Device/raisecom_msg1500-x-00
   DEVICE_VARIANT := X.00
   DEVICE_ALT0_VENDOR := Nokia
   DEVICE_ALT0_MODEL := A-040W-Q
-  DEVICE_PACKAGES := kmod-mt7615e kmod-mt7615-firmware kmod-usb3 \
+  DEVICE_PACKAGES := kmod-mt7615d luci-app-mtwifi kmod-usb3 \
 	kmod-usb-ledtrig-usbport
 endef
 TARGET_DEVICES += raisecom_msg1500-x-00

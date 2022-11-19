@@ -4,7 +4,7 @@ touch /etc/crontabs/root
 
 uci set luci.main.lang=zh_cn
 #设置默认主题
-#uci set luci.main.mediaurlbase=/luci-static/argon
+uci set luci.main.mediaurlbase=/luci-static/argon
 uci commit luci
 	
 uci -q set dropbear.@dropbear[0].Interface='lan'
@@ -26,6 +26,12 @@ uci commit uhttpd
 
 uci set fstab.@global[0].anon_mount=1
 uci commit fstab
+
+uci -q set wireless.default_radio1.htmode="VHT80"   #AC
+uci -q set wireless.default_radio1.channel="48"
+
+uci -q set wireless.default_radio0.htmode="HT40"   #N
+uci -q set wireless.default_radio0.channel='11'
 
 uci -q set upnpd.config.enabled='1'
 uci commit upnpd
@@ -52,19 +58,19 @@ sed -i "s/# //g" /etc/opkg/distfeeds.conf
 #uci set dhcp.lan.ra_default='1'
 #uci set dhcp.@dnsmasq[0].localservice=0
 #uci set dhcp.@dnsmasq[0].nonwildcard=0
-uci delete dhcp.lan.ra
-uci delete dhcp.lan.dhcpv6
-uci delete dhcp.lan.ndp
-uci commit dhcp
+#uci delete dhcp.lan.ra
+#uci delete dhcp.lan.dhcpv6
+#uci delete dhcp.lan.ndp
+#uci commit dhcp
 
 #uci set network.lan.ipaddr='192.168.119.254'
 #uci set network.lan.netmask='255.255.255.0'
 uci set network.lan.ip6assign='64'
 uci commit network
 
-sed -i '/option disabled/d' /etc/config/wireless
-sed -i '/set wireless.radio${devidx}.disabled/d' /lib/wifi/mac80211.sh
-wifi up
+#sed -i '/option disabled/d' /etc/config/wireless
+#sed -i '/set wireless.radio${devidx}.disabled/d' /lib/wifi/mac80211.sh
+#wifi up
 
 #sed -i '/DISTRIB_DESCRIPTION/d' /etc/openwrt_release
 #echo "DISTRIB_DESCRIPTION='OpenWrt SNAPSHOT'" >> /etc/openwrt_release
